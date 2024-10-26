@@ -32,7 +32,7 @@ jobs:
         run: npm test
 
   deploy:
-    needs: validate
+    needs: validate  # Ensures `deploy` only runs if `validate` is successful
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && success()
     steps:
@@ -48,13 +48,14 @@ jobs:
         run: npm install
 
       - name: Compile TypeScript
-        run: npm run build # Assumes this command compiles to `dist/`
+        run: npm run build  # Assumes this command compiles to `dist/`
 
-      - name: Upload compiled code to Lambda
+      - name: Deploy to AWS Lambda
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: "us-east-1" # THIS IS OUR CORRECT REGION
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          LAMBDA_FUNCTION_NAME: ${{ secrets.LAMBDA_FUNCTION_NAME }}
         run: |
           zip -r lambda-package.zip dist/
-          aws lambda update-function-code --function-name metricsCalculation --zip-file fileb://lambda-package.zip
+          aws lambda update-function-code --function-name $LAMBDA_FUNCTION_NAME --zip-file fileb://lambda-package.zip
