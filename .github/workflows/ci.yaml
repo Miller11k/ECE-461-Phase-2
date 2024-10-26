@@ -38,3 +38,4 @@ jobs:
 
       - name: Run checker script
         run: python3 checker/checker.py
+
