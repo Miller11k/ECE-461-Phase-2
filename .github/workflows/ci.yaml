@@ -47,6 +47,9 @@ jobs:
         with:
           node-version: "22.8.0"
 
+      - name: Install AWS CLI
+        run: sudo apt-get install -y awscli
+
       - name: Install dependencies
         run: npm ci
 
