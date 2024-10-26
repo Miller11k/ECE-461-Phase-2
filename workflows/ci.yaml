@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - 21-testing-code-coverage-and-integration
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "22.8.0" # Or whatever version you are using
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.10"
+
+      - name: Install python-dotenv
+        run: pip install python-dotenv
+
+      - name: Setup .env file and Install Dependencies
+        run: |
+          echo "GITHUB_TOKEN=${{ secrets.API_TOKEN }}" >> checker/.env
+          echo "LOG_LEVEL=info" >> checker/.env
+          echo "LOG_FILE=/tmp/checker.log" >> checker/.env
+
+      - name: Run checker script
+        run: python3 checker/checker.py
