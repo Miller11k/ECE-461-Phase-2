@@ -48,7 +48,7 @@ jobs:
           node-version: "22.8.0"
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Compile TypeScript
         run: npm run build  # Assumes this command compiles to `dist/`
