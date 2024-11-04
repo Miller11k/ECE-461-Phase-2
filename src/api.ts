@@ -1,5 +1,8 @@
 import axios from 'axios';
 import * as dotenv from 'dotenv';
+import * as fs from 'fs';
+import { uploadFile } from './S3Connect'; // Update to the correct path
+import * as path from 'path';
 
 dotenv.config();
 
@@ -30,22 +33,11 @@ async function postPackageUrl(packageUrl: string) {
             console.error(`Error with POST request for metric ${metricType}:`, error);
         }
     }
+
+
 }
-    
 
-
-
-// added this for testing by writing the url to terminal, commented out for now
-
-// const packageUrl = process.argv[2];  // The URL passed as an argument
-
-// if (!packageUrl) {
-//     console.error('Please provide a package URL as a command-line argument.');
-//     process.exit(1);
-// }
-
-
-// Example usage
-postPackageUrl('https://github.com/lodash/lodash');
+// // Example usage
+ postPackageUrl('https://github.com/lodash/lodash');
 
 

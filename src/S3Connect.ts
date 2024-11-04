@@ -1,7 +1,7 @@
-require('dotenv').config();  // Load environment variables from .env file
-const AWS = require('aws-sdk');
-const fs = require('fs');
-const path = require('path');
+import AWS from 'aws-sdk';
+import fs from 'fs';
+import path from 'path';
+
 
 // Load environment variables from the environment
 const bucketName = process.env.S3_BUCKET_NAME;
@@ -23,7 +23,11 @@ AWS.config.update({
 const s3 = new AWS.S3();
 
 // Function to upload a file
+<<<<<<< HEAD
 const uploadFile = async (filePath) => {
+=======
+export const uploadFile = async (filePath: string): Promise<void> => {  // specified type of input
+>>>>>>> 4d36e7f (cli_to_RDS)
     try {
         if (!fs.existsSync(filePath)) {
             console.error(`Error: File at path "${filePath}" does not exist.`);
@@ -34,7 +38,11 @@ const uploadFile = async (filePath) => {
         const fileName = path.basename(filePath);
 
         const params = {
+<<<<<<< HEAD
             Bucket: bucketName,
+=======
+            Bucket: bucketName as string, // Cast as string to satisfy types
+>>>>>>> 4d36e7f (cli_to_RDS)
             Key: fileName,
             Body: fileStream,
         };
@@ -47,15 +55,25 @@ const uploadFile = async (filePath) => {
 };
 
 // Function to download a file
+<<<<<<< HEAD
 const downloadFile = async (fileName, downloadPath) => {
     const params = {
         Bucket: bucketName,
+=======
+const downloadFile = async (fileName: string, downloadPath: string): Promise<void> => {  // specified input type
+    const params = {
+        Bucket: bucketName as string, // Cast as string to satisfy types
+>>>>>>> 4d36e7f (cli_to_RDS)
         Key: fileName,
     };
 
     try {
         const data = await s3.getObject(params).promise();
+<<<<<<< HEAD
         fs.writeFileSync(downloadPath, data.Body);
+=======
+        fs.writeFileSync(downloadPath, data.Body as Buffer);
+>>>>>>> 4d36e7f (cli_to_RDS)
         console.log(`File downloaded successfully to ${downloadPath}`);
     } catch (error) {
         console.error('Error downloading file:', error);
@@ -63,9 +81,15 @@ const downloadFile = async (fileName, downloadPath) => {
 };
 
 // Function to delete a file
+<<<<<<< HEAD
 const deleteFile = async (fileName) => {
     const params = {
         Bucket: bucketName,
+=======
+const deleteFile = async (fileName: string): Promise<void> => {  // Specify 'fileName' type as 'string'
+    const params = {
+        Bucket: bucketName as string, // Cast as string to satisfy types
+>>>>>>> 4d36e7f (cli_to_RDS)
         Key: fileName,
     };
 
@@ -82,4 +106,8 @@ const deleteFile = async (fileName) => {
     await uploadFile('./README.md'); // Replace with the correct file path
     await downloadFile('README.md', './Success.md'); // Replace with the desired download path
     await deleteFile('README.md'); // Replace with the correct file name to delete
+<<<<<<< HEAD
 })();
+=======
+})();
+>>>>>>> 4d36e7f (cli_to_RDS)
