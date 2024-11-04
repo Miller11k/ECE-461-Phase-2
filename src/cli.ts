@@ -6,6 +6,7 @@ import { hideBin } from 'yargs/helpers';
 import dotenv from 'dotenv';
 import axios from 'axios';
 import fs from 'fs';
+import { exit } from 'process';
 
 // Proprietaries
 import { OCTOKIT, logger, logLevel, logFile } from './Metrics.js';
@@ -17,15 +18,33 @@ import { LicenseTest } from './license.js';
 import { MaintainabilityTest } from './maintainability.js';
 import { RampUpTest } from './rampUp.js';
 import { NetScoreTest } from './netScore.js';
-import { exit } from 'process';
+
+// Additions for writing to the database
+import pkg from 'pg';
+const { Pool } = pkg;
 
 dotenv.config();
+
+// now we need to add all of the database information in the .env file
+const pool = new Pool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    port: Number(process.env.DB_PORT), 
+    ssl: {
+        rejectUnauthorized: false,
+        ca: process.env.DB_SSL_CA
+    }
+});
+
+
 
 /**
  * Retrieves the GitHub repository URL from an npm package URL.
  *
- * @param npmUrl - The URL of the npm package.
- * @returns A promise that resolves to the GitHub repository URL if found, or null if not found.
+ * @param {string} npmUrl - The URL of the npm package.
+ * @returns {Promise<string | null>} A promise that resolves to the GitHub repository URL if found, or null if not found.
  *
  * @remarks
  * This function extracts the package name from the provided npm URL and fetches the package details from the npm registry.
@@ -145,8 +164,8 @@ async function runTests() {
 /**
  * Processes a file containing URLs and performs actions based on the type of URL.
  * 
- * @param filePath - The path to the file containing the URLs.
- * @returns A promise that resolves when all URLs have been processed.
+ * @param {string} filePath - The path to the file containing the URLs.
+ * @returns {Promise<void>} A promise that resolves when all URLs have been processed.
  */
 async function processUrls(filePath: string): Promise<void> {
     logger.info(`Processing URLs from file: ${filePath}`);
@@ -155,6 +174,7 @@ async function processUrls(filePath: string): Promise<void> {
 
     const urls: string[] = fs.readFileSync(filePath, 'utf-8').split('\n');
     const githubUrls: [string, string][] = [];
+
 
     for (const url of urls) {
         url.trim();
@@ -186,7 +206,137 @@ async function processUrls(filePath: string): Promise<void> {
         const result = await netScore.evaluate();
         process.stdout.write(netScore.toString() + '\n');
         logger.debug(netScore.toString());
+
+        //additions for writing to database
+
+        const package_name = extractPackageName(netScore.NativeURL);
+
+        const insertPackageQuery = `
+            INSERT INTO packages (
+                package_name, repo_link, is_internal, package_version, s3_link, net_score, final_metric, final_metric_latency
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING package_id;
+        `;
+
+        // Setting placeholder values for fields we're not using
+        const packageValues = [
+            package_name,            // package_name
+            netScore.NativeURL,      // repo_link
+            false,                   // is_internal, setting to `false` as a default
+            '1.0.0',                 // package_version, setting to a placeholder like '1.0.0'
+            null,                    // s3_link, set to `null` if no link is available
+            netScore.netScore,       // net_score
+            null,                    // final_metric, set to `null` as a placeholder
+            netScore.responseTime    // final_metric_latency
+        ];
+
+        let packageId;
+        try {
+            const packageRes = await pool.query(insertPackageQuery, packageValues);
+            packageId = packageRes.rows[0].package_id;
+            logger.info(`Package inserted with package_id: ${packageId}`);
+        } catch (err) {
+            if (err instanceof Error) {
+                logger.error(`Error inserting package: ${err.message}`);
+            } else {
+                logger.error('Unexpected error inserting package');
+            }
+            return;
+        }
+
+        // // INSERT DEPENDENCIES
+        // const insertDependencyQuery = `
+        // INSERT INTO dependencies (package_id, dependency_url, is_internal)
+        // VALUES ($1, $2, $3)
+        // RETURNING dependency_id;
+        // `;
+
+        // //get ALL dependencies, version requirements of them, ^1.1.1, *, ~1,2,0
+        // const dependencies = netScore.dependencies;  // Assume this array contains dependency URLs
+        // for (const dep of dependencies) {
+        //     const dependencyValues = [
+        //         packageId,                       // Foreign key to link dependency to the package
+        //         dep.url,                         // Dependency URL
+        //         dep.isInternal                   // Whether the dependency is internal
+        //     ];
+
+        //     try {
+        //         const dependencyRes = await pool.query(insertDependencyQuery, dependencyValues);
+        //         logger.info(`Dependency inserted with dependency_id: ${dependencyRes.rows[0].dependency_id}`);
+        //     } catch (err) {
+        //         if (err instanceof Error) {
+        //             logger.error(`Error inserting dependency: ${err.message}`);
+        //         } else {
+        //             logger.error('Unexpected error inserting dependency');
+        //         }
+        //     }
+        // }
+
+        // INSERT METRICS AND SCORES
+        const insertMetricsQuery = `
+        INSERT INTO metrics (package_id, ramp_up_time, bus_factor, correctness, license_compatibility, maintainability)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING metric_id;
+        `;
+
+        const metricsValues = [
+            packageId,  // NEED TO put actual package id USING EXAMPLE PAKACGE ID
+            netScore.rampUp.rampUp,
+            netScore.busFactor.busFactor,
+            netScore.correctness.correctness,
+            netScore.license.license,
+            netScore.maintainability.maintainability
+        ];
+
+        try {
+            const metricsRes = await pool.query(insertMetricsQuery, metricsValues);
+            logger.info(`Metrics inserted with metric_id: ${metricsRes.rows[0].metric_id}`);
+        } catch (err) {
+            if (err instanceof Error) {
+                logger.error(`Error inserting metrics: ${err.message}`);
+            } else {
+                logger.error('Unexpected error inserting metrics');
+            }
+        }
+
+          // Insert the latencies into the `scores` table
+          const insertScoresQuery = `
+          INSERT INTO scores (package_id, net_score, ramp_up_latency, bus_factor_latency, correctness_latency, license_latency, maintainability_latency)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING score_id;
+      `;
+      
+     
+      const scoresValues = [
+          packageId,  // EXAMPLE PACAGE 
+          netScore.netScore,       
+          netScore.rampUp.responseTime, 
+          netScore.busFactor.responseTime, 
+          netScore.correctness.responseTime, 
+          netScore.license.responseTime, 
+          netScore.maintainability.responseTime 
+      ];
+      
+      try {
+          const scoresRes = await pool.query(insertScoresQuery, scoresValues);
+          logger.info(`Scores inserted with score_id: ${scoresRes.rows[0].score_id}`);
+      } catch (err) {
+          if (err instanceof Error) {
+              logger.error(`Error inserting scores: ${err.message}`);
+          } else {
+              logger.error('Unexpected error inserting scores');
+          }
+      }
+
+
     }
+}
+
+
+function extractPackageName(repoUrl: string) {
+    const urlParts = repoUrl.split('/');
+    return urlParts[urlParts.length - 1];
 }
 
 /**
