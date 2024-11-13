@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Acme Corportaion module re-use evaluation",
   "main": "dist/cli.js",
+  "type": "module",
   "scripts": {
     "build": "tsc",
     "start": "node dist/cli.js",
@@ -19,11 +20,12 @@
   },
   "dependencies": {
     "@octokit/rest": "^21.0.2",
-    "aws-sdk": "^2.1691.0",
+    "aws-sdk": "^2.1692.0",
     "axios": "^1.7.7",
     "dotenv": "^16.4.5",
     "fs": "^0.0.1-security",
     "isomorphic-git": "^1.27.1",
+    "pg": "^8.13.1",
     "winston": "^3.14.2",
     "yargs": "^17.7.2"
   }
