@@ -21,9 +21,16 @@ import { NetScoreTest } from './netScore.js';
 
 // Additions for writing to the database
 import pkg from 'pg';
+import { S3Client, HeadObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+// import { console } from 'inspector';
 const { Pool } = pkg;
 
 dotenv.config();
+
+const TEMP_BUCKET = process.env.S3_TEMP_BUCKET_NAME;
+const PERMANENT_BUCKET = process.env.S3_PERMANENT_BUCKET_NAME;
+const REGION = process.env.AWS_REGION;
+
 
 // now we need to add all of the database information in the .env file
 const pool = new Pool({
@@ -38,7 +45,71 @@ const pool = new Pool({
     }
 });
 
+// Check environment variables
+if (!TEMP_BUCKET || !PERMANENT_BUCKET) {
+    console.error("Error: Bucket names not found in environment variables. Set S3_TEMP_BUCKET_NAME and S3_PERMANENT_BUCKET_NAME in your .env file.");
+    process.exit(1);
+}
 
+// Configure AWS S3 Client
+const s3Client = new S3Client({
+    region: REGION,
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+        sessionToken: process.env.AWS_SESSION_TOKEN || ''
+    }
+});
+
+
+
+
+// Function to check if a file exists in the temporary bucket
+async function checkFileInTempBucket(fileName: string): Promise<boolean> {
+    console.log(`Checking for file "${fileName}" in temporary bucket...`);
+    try {
+        const command = new HeadObjectCommand({ Bucket: TEMP_BUCKET, Key: fileName });
+        await s3Client.send(command);
+        console.log(`File "${fileName}" found in temporary bucket.`);
+        return true;
+    } catch (error) {
+        console.error(`File "${fileName}" not found in temporary bucket:`, error);
+        return false;
+    }
+}
+
+
+// Function to download a file from the temporary bucket
+async function downloadFileFromTempBucket(fileName: string, downloadPath: string): Promise<void> {
+    console.log(`Downloading "${fileName}" from temporary bucket to "${downloadPath}"...`);
+    try {
+        const command = new GetObjectCommand({ Bucket: TEMP_BUCKET, Key: fileName });
+        const data = await s3Client.send(command);
+        fs.writeFileSync(downloadPath, Buffer.from(await data.Body!.transformToByteArray()));
+        console.log(`File "${fileName}" downloaded successfully.`);
+    } catch (error) {
+        console.error(`Error downloading file "${fileName}" from temporary bucket:`, error);
+        throw error;
+    }
+}
+
+// Function to upload a file to the permanent bucket
+async function uploadFileToPermBucket(filePath: string, fileName: string): Promise<void> {
+    console.log(`Uploading "${fileName}" to permanent bucket...`);
+    try {
+        const fileStream = fs.createReadStream(filePath);
+        const command = new PutObjectCommand({
+            Bucket: PERMANENT_BUCKET,
+            Key: fileName,
+            Body: fileStream
+        });
+        const data = await s3Client.send(command);
+        console.log(`File "${fileName}" uploaded successfully.`);
+    } catch (error) {
+        console.error(`Error uploading file "${fileName}" to permanent bucket:`, error);
+        throw error;
+    }
+}
 
 /**
  * Retrieves the GitHub repository URL from an npm package URL.
@@ -210,13 +281,59 @@ async function processUrls(filePath: string): Promise<void> {
         //additions for writing to database
 
         const package_name = extractPackageName(netScore.NativeURL);
+        const fileName = `${package_name}.zip`;
+        const tempDownloadPath = `/tmp/${fileName}`;
+        
+        // Step 1: Check if the file exists in the temporary S3 bucket
+        console.log(`Checking if file "${fileName}" exists in the temporary S3 bucket...`);
+        const fileExists = await checkFileInTempBucket(fileName);
+        if (!fileExists) {
+            console.error(`File "${fileName}" not found in temporary S3 bucket. Skipping this package.`);
+            continue;
+        }
+        
+        // Step 2: Download the file from the temporary S3 bucket
+        console.log(`Attempting to download "${fileName}" from temporary bucket to "${tempDownloadPath}"...`);
+        try {
+            await downloadFileFromTempBucket(fileName, tempDownloadPath);
+            console.log(`File "${fileName}" downloaded successfully to "${tempDownloadPath}".`);
+        } catch (error) {
+            console.error("Error during download process. Skipping this package.");
+            continue;
+        }
+        
+        // Step 3: Upload the file to the permanent S3 bucket, confirming no duplicate upload
+        console.log(`Preparing to upload "${fileName}" to the permanent S3 bucket...`);
+        try {
+            await uploadFileToPermBucket(tempDownloadPath, fileName);
+            console.log(`File "${fileName}" uploaded successfully to the permanent bucket.`);
+        } catch (error) {
+            console.error("Error during upload process. Skipping this package.");
+            continue;
+        }
+        
+        // Step 4: Delete the file from local EC2 storage after upload completes
+        console.log(`Attempting to delete temporary file "${tempDownloadPath}" from EC2...`);
+        try {
+            fs.unlinkSync(tempDownloadPath);
+            console.log(`Temporary file "${tempDownloadPath}" deleted from EC2.`);
+        } catch (error) {
+            console.error(`Error deleting temporary file "${tempDownloadPath}":`, error);
+        }
+        
+        
+
 
         const insertPackageQuery = `
-            INSERT INTO packages (
-                package_name, repo_link, is_internal, package_version, s3_link, net_score, final_metric, final_metric_latency
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING package_id;
+        INSERT INTO packages (
+            package_name, repo_link, is_internal, package_version, s3_link, net_score, final_metric, final_metric_latency
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (repo_link) 
+        DO UPDATE SET 
+            net_score = EXCLUDED.net_score,
+            final_metric_latency = EXCLUDED.final_metric_latency
+        RETURNING package_id;
         `;
 
         // Setting placeholder values for fields we're not using
@@ -230,7 +347,6 @@ async function processUrls(filePath: string): Promise<void> {
             null,                    // final_metric, set to `null` as a placeholder
             netScore.responseTime    // final_metric_latency
         ];
-
         let packageId;
         try {
             const packageRes = await pool.query(insertPackageQuery, packageValues);
@@ -238,9 +354,9 @@ async function processUrls(filePath: string): Promise<void> {
             logger.info(`Package inserted with package_id: ${packageId}`);
         } catch (err) {
             if (err instanceof Error) {
-                logger.error(`Error inserting package: ${err.message}`);
+                logger.info(`Error inserting package: ${err.message}`);
             } else {
-                logger.error('Unexpected error inserting package');
+                logger.info('Unexpected error inserting package');
             }
             return;
         }
@@ -277,6 +393,13 @@ async function processUrls(filePath: string): Promise<void> {
         const insertMetricsQuery = `
         INSERT INTO metrics (package_id, ramp_up_time, bus_factor, correctness, license_compatibility, maintainability)
         VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (package_id) 
+        DO UPDATE SET 
+            ramp_up_time = EXCLUDED.ramp_up_time,
+            bus_factor = EXCLUDED.bus_factor,
+            correctness = EXCLUDED.correctness,
+            license_compatibility = EXCLUDED.license_compatibility,
+            maintainability = EXCLUDED.maintainability
         RETURNING metric_id;
         `;
 
@@ -304,6 +427,14 @@ async function processUrls(filePath: string): Promise<void> {
           const insertScoresQuery = `
           INSERT INTO scores (package_id, net_score, ramp_up_latency, bus_factor_latency, correctness_latency, license_latency, maintainability_latency)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT (package_id) 
+          DO UPDATE SET 
+              net_score = EXCLUDED.net_score,
+              ramp_up_latency = EXCLUDED.ramp_up_latency,
+              bus_factor_latency = EXCLUDED.bus_factor_latency,
+              correctness_latency = EXCLUDED.correctness_latency,
+              license_latency = EXCLUDED.license_latency,
+              maintainability_latency = EXCLUDED.maintainability_latency
           RETURNING score_id;
       `;
       

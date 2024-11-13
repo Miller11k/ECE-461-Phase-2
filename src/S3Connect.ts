@@ -1,7 +1,7 @@
 require('dotenv').config();  // Load environment variables from .env file
-import AWS from 'aws-sdk';
-import fs from 'fs';
-import path from 'path';
+import * as AWS from 'aws-sdk';  // Use named import for aws-sdk
+import * as fs from 'fs';        // Use named import for fs
+import * as path from 'path';    // Use named import for path
 
 // Load environment variables from the environment
 const bucketName = process.env.S3_BUCKET_NAME;
@@ -15,7 +15,7 @@ if (!bucketName) {
 AWS.config.update({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    sessionToken: process.env.AWS_SESSION_TOKEN, // Add this line to include the session token
+    sessionToken: process.env.AWS_SESSION_TOKEN,
     region: process.env.AWS_REGION,
 });
 
@@ -23,7 +23,7 @@ AWS.config.update({
 const s3 = new AWS.S3();
 
 // Function to upload a file
-export const uploadFile = async (filePath: string): Promise<void> => {  // specified type of input
+export const uploadFile = async (filePath: string): Promise<void> => {
     try {
         if (!fs.existsSync(filePath)) {
             console.error(`Error: File at path "${filePath}" does not exist.`);
@@ -47,7 +47,7 @@ export const uploadFile = async (filePath: string): Promise<void> => {  // speci
 };
 
 // Function to download a file
-const downloadFile = async (fileName: string, downloadPath: string): Promise<void> => {  // specified input type
+const downloadFile = async (fileName: string, downloadPath: string): Promise<void> => {
     const params = {
         Bucket: bucketName as string, // Cast as string to satisfy types
         Key: fileName,
@@ -63,7 +63,7 @@ const downloadFile = async (fileName: string, downloadPath: string): Promise<voi
 };
 
 // Function to delete a file
-const deleteFile = async (fileName: string): Promise<void> => {  // Specify 'fileName' type as 'string'
+const deleteFile = async (fileName: string): Promise<void> => {
     const params = {
         Bucket: bucketName as string, // Cast as string to satisfy types
         Key: fileName,
@@ -79,7 +79,109 @@ const deleteFile = async (fileName: string): Promise<void> => {  // Specify 'fil
 
 // Usage example
 (async () => {
-    await uploadFile('./README.md'); // Replace with the correct file path
-    await downloadFile('README.md', './Success.md'); // Replace with the desired download path
-    await deleteFile('README.md'); // Replace with the correct file name to delete
+    await uploadFile('./tmp/cloudinary_npm.zip'); // Replace with the correct file path
+    // Uncomment if needed
+    // await downloadFile('README.md', './Success.md');
+    // await deleteFile('README.md');
 })();
+
+
+
+// import AWS from 'aws-sdk';
+// import fs from 'fs';
+// import path from 'path';
+// import dotenv from 'dotenv';
+
+// dotenv.config();
+
+// // Load environment variables
+// const TEMP_BUCKET = process.env.S3_TEMP_BUCKET_NAME;
+// const PERMANENT_BUCKET = process.env.S3_PERMANENT_BUCKET_NAME;
+// const REGION = process.env.AWS_REGION;
+// const ACCESS_KEY = process.env.AWS_ACCESS_KEY_ID;
+// const SECRET_KEY = process.env.AWS_SECRET_ACCESS_KEY;
+// const SESSION_TOKEN = process.env.AWS_SESSION_TOKEN;
+
+// // Check environment variables
+// if (!TEMP_BUCKET || !PERMANENT_BUCKET) {
+//     console.error("Error: Bucket names not found in environment variables. Set S3_TEMP_BUCKET_NAME and S3_PERMANENT_BUCKET_NAME in your .env file.");
+//     process.exit(1);
+// }
+
+// // Configure AWS SDK
+// AWS.config.update({
+//     accessKeyId: ACCESS_KEY,
+//     secretAccessKey: SECRET_KEY,
+//     sessionToken: SESSION_TOKEN,
+//     region: REGION,
+// });
+
+// const s3 = new AWS.S3();
+
+// // Function to download a file from S3
+// const downloadFile = async (bucketName: string, fileName: string, downloadPath: string): Promise<void> => {
+//     try {
+//         const params = { Bucket: bucketName, Key: fileName };
+//         const data = await s3.getObject(params).promise();
+//         fs.writeFileSync(downloadPath, data.Body as Buffer);
+//         console.log(`File downloaded successfully to ${downloadPath}`);
+//     } catch (error) {
+//         console.error(`Error downloading file from ${bucketName}:`, error);
+//         throw error; // Propagate error
+//     }
+// };
+
+// // Function to upload a file to S3
+// const uploadFile = async (bucketName: string, filePath: string, fileName: string): Promise<void> => {
+//     try {
+//         const fileStream = fs.createReadStream(filePath);
+//         const params = { Bucket: bucketName, Key: fileName, Body: fileStream };
+//         await s3.upload(params).promise();
+//         console.log(`File uploaded successfully to ${bucketName}`);
+//     } catch (error) {
+//         console.error(`Error uploading file to ${bucketName}:`, error);
+//         throw error;
+//     }
+// };
+
+// // Function to delete a file from S3
+// const deleteFile = async (bucketName: string, fileName: string): Promise<void> => {
+//     try {
+//         const params = { Bucket: bucketName, Key: fileName };
+//         await s3.deleteObject(params).promise();
+//         console.log(`File "${fileName}" deleted successfully from ${bucketName}.`);
+//     } catch (error) {
+//         console.error(`Error deleting file from ${bucketName}:`, error);
+//         throw error;
+//     }
+// };
+
+// // Main function to move a file from temp to permanent bucket
+// const moveFileToPermanentBucket = async (fileName: string) => {
+//     const tempFilePath = path.join("/tmp", fileName); // Local temporary file path for EC2
+
+//     try {
+//         // Step 1: Download from temporary bucket
+//         console.log(`Downloading ${fileName} from ${TEMP_BUCKET}...`);
+//         await downloadFile(TEMP_BUCKET, fileName, tempFilePath);
+
+//         // Step 2: Upload to permanent bucket
+//         console.log(`Uploading ${fileName} to ${PERMANENT_BUCKET}...`);
+//         await uploadFile(PERMANENT_BUCKET, tempFilePath, fileName);
+
+//         // Step 3: Delete from temporary bucket
+//         console.log(`Deleting ${fileName} from ${TEMP_BUCKET}...`);
+//         await deleteFile(TEMP_BUCKET, fileName);
+//     } catch (error) {
+//         console.error("Error in moving file:", error);
+//     } finally {
+//         // Step 4: Clean up local temporary file
+//         if (fs.existsSync(tempFilePath)) {
+//             fs.unlinkSync(tempFilePath);
+//             console.log(`Local temporary file ${tempFilePath} deleted.`);
+//         }
+//     }
+// };
+
+// // Usage example (replace 'your-file-name.ext' with the actual file name)
+// moveFileToPermanentBucket("your-file-name.ext").catch(console.error);
