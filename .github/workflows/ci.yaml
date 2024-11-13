@@ -36,7 +36,31 @@ jobs:
 
       - name: Run checker script
         run: python3 checker/checker.py
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && success()
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
+      - name: Install SSH client
+        run: sudo apt-get update && sudo apt-get install -y openssh-client
+
+      - name: Add SSH key
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Deploy to EC2 via SSH
+        env:
+          NODE_ENV: production
+        run: |
+          ssh -o StrictHostKeyChecking=no ec2-user@your.ec2.instance.ip '
+          cd /path/to/your/app &&
+          git pull &&
+          ./run build
+          '
   deploy:
     needs: validate  # Ensures `deploy` only runs if `validate` is successful
     runs-on: ubuntu-latest
