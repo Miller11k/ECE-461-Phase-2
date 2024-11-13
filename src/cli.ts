@@ -22,7 +22,7 @@ import { NetScoreTest } from './netScore.js';
 
 // Additions for writing to the database
 import pkg from 'pg';
-import { S3Client, HeadObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, HeadObjectCommand, GetObjectCommand, PutObjectCommand, GetBucketLoggingCommand } from "@aws-sdk/client-s3";
 // import { console } from 'inspector';
 const { Pool } = pkg;
 
@@ -284,6 +284,10 @@ async function processUrls(filePath: string): Promise<void> {
         process.stdout.write(netScore.toString() + '\n');
         logger.debug(netScore.toString());
 
+        if (netScore.netScore < 0.5) {
+            console.log(`Skipping ${url[0]} due to low net score of ${netScore.netScore}.`);
+            continue;  // Skip to the next URL in githubUrls
+        }
         //additions for writing to database
 
         const package_name = extractPackageName(netScore.NativeURL);
