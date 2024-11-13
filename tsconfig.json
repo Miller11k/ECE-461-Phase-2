@@ -100,5 +100,8 @@
   "include": [
     "src/**/*.ts",
     "types/**/*.d.ts"
+  ],
+  "exclude": [
+    "src/S3Connect.ts"
   ]
 }

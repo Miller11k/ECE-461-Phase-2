@@ -1,7 +1,13 @@
+<<<<<<< HEAD
 require('dotenv').config();  // Load environment variables from .env file
 import * as AWS from 'aws-sdk';  // Use named import for aws-sdk
 import * as fs from 'fs';        // Use named import for fs
 import * as path from 'path';    // Use named import for path
+=======
+import AWS from 'aws-sdk';
+import fs from 'fs';
+import path from 'path';
+>>>>>>> cd3371910538f8b160c4c2c24e29b08c2715095e
 
 // Load environment variables from the environment
 const bucketName = process.env.S3_BUCKET_NAME;
@@ -15,7 +21,11 @@ if (!bucketName) {
 AWS.config.update({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+<<<<<<< HEAD
     sessionToken: process.env.AWS_SESSION_TOKEN,
+=======
+    sessionToken: process.env.AWS_SESSION_TOKEN, // Add this line to include the session token
+>>>>>>> cd3371910538f8b160c4c2c24e29b08c2715095e
     region: process.env.AWS_REGION,
 });
 
@@ -23,7 +33,11 @@ AWS.config.update({
 const s3 = new AWS.S3();
 
 // Function to upload a file
+<<<<<<< HEAD
 export const uploadFile = async (filePath: string): Promise<void> => {
+=======
+export const uploadFile = async (filePath: string): Promise<void> => {  // specified type of input
+>>>>>>> cd3371910538f8b160c4c2c24e29b08c2715095e
     try {
         if (!fs.existsSync(filePath)) {
             console.error(`Error: File at path "${filePath}" does not exist.`);
@@ -47,7 +61,11 @@ export const uploadFile = async (filePath: string): Promise<void> => {
 };
 
 // Function to download a file
+<<<<<<< HEAD
 const downloadFile = async (fileName: string, downloadPath: string): Promise<void> => {
+=======
+const downloadFile = async (fileName: string, downloadPath: string): Promise<void> => {  // specified input type
+>>>>>>> cd3371910538f8b160c4c2c24e29b08c2715095e
     const params = {
         Bucket: bucketName as string, // Cast as string to satisfy types
         Key: fileName,
@@ -63,7 +81,11 @@ const downloadFile = async (fileName: string, downloadPath: string): Promise<voi
 };
 
 // Function to delete a file
+<<<<<<< HEAD
 const deleteFile = async (fileName: string): Promise<void> => {
+=======
+const deleteFile = async (fileName: string): Promise<void> => {  // Specify 'fileName' type as 'string'
+>>>>>>> cd3371910538f8b160c4c2c24e29b08c2715095e
     const params = {
         Bucket: bucketName as string, // Cast as string to satisfy types
         Key: fileName,
@@ -79,6 +101,7 @@ const deleteFile = async (fileName: string): Promise<void> => {
 
 // Usage example
 (async () => {
+<<<<<<< HEAD
     await uploadFile('./tmp/cloudinary_npm.zip'); // Replace with the correct file path
     // Uncomment if needed
     // await downloadFile('README.md', './Success.md');
@@ -185,3 +208,9 @@ const deleteFile = async (fileName: string): Promise<void> => {
 
 // // Usage example (replace 'your-file-name.ext' with the actual file name)
 // moveFileToPermanentBucket("your-file-name.ext").catch(console.error);
+=======
+    await uploadFile('./README.md'); // Replace with the correct file path
+    await downloadFile('README.md', './Success.md'); // Replace with the desired download path
+    await deleteFile('README.md'); // Replace with the correct file name to delete
+})();
+>>>>>>> cd3371910538f8b160c4c2c24e29b08c2715095e

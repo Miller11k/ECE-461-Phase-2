@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import axios from 'axios';
 import fs from 'fs';
 import { exit } from 'process';
+// import { exit } from 'process';
 
 // Proprietaries
 import { OCTOKIT, logger, logLevel, logFile } from './Metrics.js';
@@ -114,6 +115,8 @@ async function uploadFileToPermBucket(filePath: string, fileName: string): Promi
 /**
  * Retrieves the GitHub repository URL from an npm package URL.
  *
+ * @param {string} npmUrl - The URL of the npm package.
+ * @returns {Promise<string | null>} A promise that resolves to the GitHub repository URL if found, or null if not found.
  * @param {string} npmUrl - The URL of the npm package.
  * @returns {Promise<string | null>} A promise that resolves to the GitHub repository URL if found, or null if not found.
  *
@@ -237,6 +240,8 @@ async function runTests() {
  * 
  * @param {string} filePath - The path to the file containing the URLs.
  * @returns {Promise<void>} A promise that resolves when all URLs have been processed.
+ * @param {string} filePath - The path to the file containing the URLs.
+ * @returns {Promise<void>} A promise that resolves when all URLs have been processed.
  */
 async function processUrls(filePath: string): Promise<void> {
     logger.info(`Processing URLs from file: ${filePath}`);
@@ -245,6 +250,7 @@ async function processUrls(filePath: string): Promise<void> {
 
     const urls: string[] = fs.readFileSync(filePath, 'utf-8').split('\n');
     const githubUrls: [string, string][] = [];
+
 
 
     for (const url of urls) {
