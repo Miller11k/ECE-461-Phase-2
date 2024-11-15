@@ -10,6 +10,7 @@ on:
 
 jobs:
   validate:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -39,7 +40,6 @@ jobs:
   deploy:
     needs: validate
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && success()
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -51,15 +51,6 @@ jobs:
         uses: webfactory/ssh-agent@v0.7.0
         with:
           ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
-
-      - name: Install dependencies
-        run: npm install
-
-      # - name: Copy node_modules to EC2
-      #   env:
-      #     NODE_ENV: production
-      #   run: |
-      #     scp -o StrictHostKeyChecking=no -r node_modules ec2-user@ec2-107-23-20-150.compute-1.amazonaws.com:/ECE-461-Phase-2
 
       - name: Deploy Code to EC2
         run: |
