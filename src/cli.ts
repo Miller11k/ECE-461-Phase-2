@@ -20,6 +20,13 @@ import { MaintainabilityTest } from './maintainability.js';
 import { RampUpTest } from './rampUp.js';
 import { NetScoreTest } from './netScore.js';
 
+
+// Debloat
+import { debloatPackage } from './debloat.js'; // Import the debloat function
+
+// Size cost calculation
+import { calculateSizeCost } from './sizeCost.js';
+
 // Additions for writing to the database
 import pkg from 'pg';
 import { S3Client, HeadObjectCommand, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
@@ -251,8 +258,6 @@ async function processUrls(filePath: string): Promise<void> {
     const urls: string[] = fs.readFileSync(filePath, 'utf-8').split('\n');
     const githubUrls: [string, string][] = [];
 
-
-
     for (const url of urls) {
         url.trim();
         // Skip empty lines
@@ -265,31 +270,30 @@ async function processUrls(filePath: string): Promise<void> {
             // If it's an npm URL, try to get the GitHub URL
             const githubUrl = await getGithubUrlFromNpm(url);
             if (githubUrl) {
-                githubUrls.push([url,githubUrl]);
+                githubUrls.push([url, githubUrl]);
             }
         }
     }
 
-    // Print the github urls
+    // Print the GitHub URLs
     logger.debug('GitHub URLs:');
     for (const url of githubUrls) {
         logger.debug(`\t${url[0]} -> ${url[1]}`);
     }
 
     logger.debug('URLs processed. Starting evaluation...');
-    // Process each GitHub URL
     for (const url of githubUrls) {
         const netScore = new NetScore(url[0], url[1]);
         const result = await netScore.evaluate();
         process.stdout.write(netScore.toString() + '\n');
         logger.debug(netScore.toString());
 
-        //additions for writing to database
-
+        // Define file paths
         const package_name = extractPackageName(netScore.NativeURL);
         const fileName = `${package_name}.zip`;
         const tempDownloadPath = `/tmp/${fileName}`;
-        
+        const debloatedPath = `/tmp/debloated-${fileName}`;
+
         // Step 1: Check if the file exists in the temporary S3 bucket
         console.log(`Checking if file "${fileName}" exists in the temporary S3 bucket...`);
         const fileExists = await checkFileInTempBucket(fileName);
@@ -297,7 +301,7 @@ async function processUrls(filePath: string): Promise<void> {
             console.error(`File "${fileName}" not found in temporary S3 bucket. Skipping this package.`);
             continue;
         }
-        
+
         // Step 2: Download the file from the temporary S3 bucket
         console.log(`Attempting to download "${fileName}" from temporary bucket to "${tempDownloadPath}"...`);
         try {
@@ -307,27 +311,47 @@ async function processUrls(filePath: string): Promise<void> {
             console.error("Error during download process. Skipping this package.");
             continue;
         }
-        
-        // Step 3: Upload the file to the permanent S3 bucket, confirming no duplicate upload
+
+        // Step 3: Debloat the downloaded ZIP file
+        try {
+            console.log(`Debloating the file "${tempDownloadPath}"...`);
+            await debloatPackage(tempDownloadPath, debloatedPath);
+            console.log(`File "${tempDownloadPath}" debloated and saved to "${debloatedPath}".`);
+        } catch (error) {
+            console.error("Error during debloating process. Skipping this package.");
+            continue;
+        }
+
+        // Step 4: Upload the debloated file to the permanent S3 bucket
         console.log(`Preparing to upload "${fileName}" to the permanent S3 bucket...`);
         try {
-            await uploadFileToPermBucket(tempDownloadPath, fileName);
+            await uploadFileToPermBucket(debloatedPath, fileName);
             console.log(`File "${fileName}" uploaded successfully to the permanent bucket.`);
         } catch (error) {
             console.error("Error during upload process. Skipping this package.");
             continue;
         }
-        
-        // Step 4: Delete the file from local EC2 storage after upload completes
-        console.log(`Attempting to delete temporary file "${tempDownloadPath}" from EC2...`);
+
+        // Step 5: Delete the file from local EC2 storage after upload completes
+        console.log(`Attempting to delete temporary files "${tempDownloadPath}" and "${debloatedPath}"...`);
         try {
             fs.unlinkSync(tempDownloadPath);
+            fs.unlinkSync(debloatedPath);
             console.log(`Temporary file "${tempDownloadPath}" deleted from EC2.`);
+            console.log(`Temporary file "${debloatedPath}" deleted from EC2.`);
         } catch (error) {
             console.error(`Error deleting temporary file "${tempDownloadPath}":`, error);
+            console.error(`Error deleting temporary file "${debloatedPath}":`, error);
         }
         
-        
+        // Step 6: Calculate size cost for the package
+        try {
+            console.log(`Calculating size cost for package "${package_name}"...`);
+            const sizeCost = await calculateSizeCost(package_name);
+            console.log(`Size Cost for package "${package_name}": Standalone Cost = ${sizeCost.standaloneCost} KB, Total Cost = ${sizeCost.totalCost} KB`);
+        } catch (error) {
+            console.error(`Error calculating size cost for package "${package_name}":`, error);
+        }        
 
 
         const insertPackageQuery = `
@@ -466,9 +490,10 @@ async function processUrls(filePath: string): Promise<void> {
           }
       }
 
-
+    
     }
 }
+
 
 
 function extractPackageName(repoUrl: string) {
