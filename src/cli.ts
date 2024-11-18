@@ -33,6 +33,12 @@ dotenv.config();
 const PERMANENT_BUCKET = process.env.S3_PERMANENT_BUCKET_NAME;
 const REGION = process.env.AWS_REGION;
 
+// Validate required environment variables
+if (!PERMANENT_BUCKET || !REGION || !process.env.IAM_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+    console.error("Error: Missing required environment variables. Ensure AWS credentials and S3 bucket name are set.");
+    process.exit(1);
+}
+
 
 // now we need to add all of the database information in the .env file
 const pool = new Pool({
@@ -57,9 +63,8 @@ if (!PERMANENT_BUCKET) {
 const s3Client = new S3Client({
     region: REGION,
     credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-        sessionToken: process.env.AWS_SESSION_TOKEN || ''
+        accessKeyId: process.env.IAM_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
     }
 });
 
