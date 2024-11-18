@@ -3,10 +3,10 @@ name: CI/CD Pipeline
 on:
   push:
     branches:
-      - main
+      - new_metrics
   pull_request:
     branches:
-      - main
+      - new_metrics
 
 jobs:
   validate:
@@ -38,34 +38,25 @@ jobs:
         run: python3 checker/checker.py
 
   deploy:
-    needs: validate  # Ensures `deploy` only runs if `validate` is successful
+    needs: validate
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && success()
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - name: Install SSH client
+        run: sudo apt-get update && sudo apt-get install -y openssh-client
+
+      - name: Add SSH key
+        uses: webfactory/ssh-agent@v0.7.0
         with:
-          node-version: "22.8.0"
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-      - name: Install AWS CLI
-        run: sudo apt-get install -y awscli
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Compile TypeScript
-        run: npm run build  # Assumes this command compiles to `dist/`
-
-      - name: Deploy to AWS Lambda
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          LAMBDA_FUNCTION_NAME: ${{ secrets.LAMBDA_FUNCTION_NAME }}
+      - name: Deploy Code to EC2
         run: |
-          zip -r lambda-package.zip dist/
-          aws lambda update-function-code --function-name $LAMBDA_FUNCTION_NAME --zip-file fileb://lambda-package.zip
+          ssh -o StrictHostKeyChecking=no ec2-user@ec2-107-23-20-150.compute-1.amazonaws.com '
+          cd /ECE-461-Phase-2 &&
+          git pull &&
+          npm install --production &&
+          ./run build
+          '

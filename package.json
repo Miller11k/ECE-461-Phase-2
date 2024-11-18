@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Acme Corportaion module re-use evaluation",
   "main": "dist/cli.js",
+  "type":"module",
   "scripts": {
     "build": "tsc",
     "start": "node dist/cli.js",
