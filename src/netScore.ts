@@ -6,6 +6,9 @@ import { License } from './license.js';
 import { RampUp } from './rampUp.js';
 import { Maintainability } from './maintainability.js';
 import { ASSERT_LT, ASSERT_NEAR } from './testUtils.js';
+// new metrics
+import {DependencyPinning} from './Dependency.js';
+import { CodeReviewFraction } from './CodeReviewFraction.js';
 
 /**
  * @class NetScore
@@ -22,7 +25,8 @@ export class NetScore extends Metrics {
      * 
      * The weights are used in the calculation of the net score. They are provided as an array of numbers.
      */
-    weights: Array<number> = [19.84, 7.47, 30.69, 42.0];
+    // weights: Array<number> = [19.84, 7.47, 30.69, 42.0]; // 
+    weights: Array<number> = [12.84, 7.47, 30.69, 30.00,12.0,7.00 ]; // new weights
 
     /**
      * @brief The calculated net score of the repository.
@@ -57,6 +61,16 @@ export class NetScore extends Metrics {
     maintainability: Maintainability;
 
     /**
+     * @brief An instance of the Dependency metric.
+     */
+    DependencyPinning: DependencyPinning;
+
+    /**
+     * @brief An instance of the code review metric.
+     */
+    CodeReviewFraction: CodeReviewFraction;
+
+    /**
      * @brief Constructs an instance of the NetScore class.
      * 
      * Initializes each metric with the provided native URL and project URL.
@@ -71,6 +85,8 @@ export class NetScore extends Metrics {
         this.license = new License(nativeUrl, url);
         this.rampUp = new RampUp(nativeUrl, url);
         this.maintainability = new Maintainability(nativeUrl, url);
+        this.DependencyPinning = new DependencyPinning(nativeUrl,url);
+        this.CodeReviewFraction = new CodeReviewFraction(nativeUrl,url);
     }
 
     /**
@@ -91,23 +107,27 @@ export class NetScore extends Metrics {
             this.correctness.evaluate(),
             this.license.evaluate(),
             this.rampUp.evaluate(),
-            this.maintainability.evaluate()
+            this.maintainability.evaluate(),
+            this.DependencyPinning.evaluate(),
+            this.CodeReviewFraction.evaluate()
         ]);
         const endTime = performance.now();
 
+
         // Calculate the net score
         // If any metric is -1 then netscore is 0
-        if (this.busFactor.busFactor == -1 || this.correctness.correctness == -1 || this.license.license == -1 || this.rampUp.rampUp == -1 || this.maintainability.maintainability == -1 || this.license.license == 0) {
+        if (this.busFactor.busFactor == -1 || this.correctness.correctness == -1 || this.license.license == -1 || this.rampUp.rampUp == -1 || this.maintainability.maintainability == -1 || this.license.license == 0 || this.DependencyPinning.dependencyPinning ==-1 || this.CodeReviewFraction.codeReviewFraction == -1)  {
             this.netScore = 0;
             return this.netScore;
         }
         else {
             this.netScore = 0;
             for (let i = 0; i < this.weights.length; i++) {
-                this.netScore += this.weights[i] * [this.busFactor.busFactor, this.correctness.correctness, this.rampUp.rampUp, this.maintainability.maintainability][i] / 100;
+                this.netScore += this.weights[i] * [this.busFactor.busFactor, this.correctness.correctness, this.rampUp.rampUp, this.maintainability.maintainability,this.DependencyPinning.dependencyPinning, this.CodeReviewFraction.codeReviewFraction][i] / 100;
             }
             
         }
+
 
         // Check if netscore is between 0 and 1
         if (this.netScore < 0 || this.netScore > 1) {
@@ -117,6 +137,8 @@ export class NetScore extends Metrics {
             logger.debug(`RampUp: ${this.rampUp.rampUp}`);
             logger.debug(`Maintainability: ${this.maintainability.maintainability}`);
             logger.debug(`License: ${this.license.license}`);
+            logger.debug(`Dependency Pinning: ${this.DependencyPinning.dependencyPinning}`);
+            logger.debug(`Code Review fraction: ${this.CodeReviewFraction.codeReviewFraction}`);
         }
         // assert(this.netScore >= 0 && this.netScore <= 1, 'NetScore out of bounds');
 
@@ -149,7 +171,9 @@ export class NetScore extends Metrics {
             "ResponsiveMaintainer": ${this.maintainability.maintainability.toFixed(3)},
             "ResponsiveMaintainer_Latency": ${this.maintainability.responseTime.toFixed(3)},
             "License": ${this.license.license.toFixed(3)},
-            "License_Latency": ${this.license.responseTime.toFixed(3)}
+            "License_Latency": ${this.license.responseTime.toFixed(3)},
+            "Dependency Pinning": ${this.DependencyPinning.dependencyPinning},
+            "Code Review fraction": ${this.CodeReviewFraction.codeReviewFraction} 
         }`.replace(/\s+/g, ' ')
             .replace(/\s*{\s*/g, '{')
             .replace(/\s*}\s*/g, '}')

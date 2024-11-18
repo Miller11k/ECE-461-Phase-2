@@ -20,15 +20,16 @@ import { MaintainabilityTest } from './maintainability.js';
 import { RampUpTest } from './rampUp.js';
 import { NetScoreTest } from './netScore.js';
 
+import {getPackageVersion} from './getPackageVersion.js';
 // Additions for writing to the database
 import pkg from 'pg';
 import { S3Client, HeadObjectCommand, GetObjectCommand, PutObjectCommand, GetBucketLoggingCommand } from "@aws-sdk/client-s3";
 // import { console } from 'inspector';
+import path from 'path';
 const { Pool } = pkg;
 
 dotenv.config();
 
-const TEMP_BUCKET = process.env.S3_TEMP_BUCKET_NAME;
 const PERMANENT_BUCKET = process.env.S3_PERMANENT_BUCKET_NAME;
 const REGION = process.env.AWS_REGION;
 
@@ -47,8 +48,8 @@ const pool = new Pool({
 });
 
 // Check environment variables
-if (!TEMP_BUCKET || !PERMANENT_BUCKET) {
-    console.error("Error: Bucket names not found in environment variables. Set S3_TEMP_BUCKET_NAME and S3_PERMANENT_BUCKET_NAME in your .env file.");
+if (!PERMANENT_BUCKET) {
+    console.error("Error: Bucket name not found in environment variables. Set S3_TEMP_BUCKET_NAME and S3_PERMANENT_BUCKET_NAME in your .env file.");
     process.exit(1);
 }
 
@@ -65,52 +66,87 @@ const s3Client = new S3Client({
 
 
 
-// Function to check if a file exists in the temporary bucket
-async function checkFileInTempBucket(fileName: string): Promise<boolean> {
-    console.log(`Checking for file "${fileName}" in temporary bucket...`);
-    try {
-        const command = new HeadObjectCommand({ Bucket: TEMP_BUCKET, Key: fileName });
-        await s3Client.send(command);
-        console.log(`File "${fileName}" found in temporary bucket.`);
-        return true;
-    } catch (error) {
-        console.error(`File "${fileName}" not found in temporary bucket:`, error);
-        return false;
-    }
+function getS3Key(packageName: string, version: string): string {
+    return `${packageName}/${version}/Package.zip`;
 }
 
+import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 
-// Function to download a file from the temporary bucket
-async function downloadFileFromTempBucket(fileName: string, downloadPath: string): Promise<void> {
-    console.log(`Downloading "${fileName}" from temporary bucket to "${downloadPath}"...`);
+async function deletePackageFromS3(packageName: string, version: string): Promise<void> {
+    const s3Key = `${packageName}/${version}/Package.zip`; // Adjust key as needed
+    const command = new DeleteObjectCommand({
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: s3Key,
+    });
+
     try {
-        const command = new GetObjectCommand({ Bucket: TEMP_BUCKET, Key: fileName });
-        const data = await s3Client.send(command);
-        fs.writeFileSync(downloadPath, Buffer.from(await data.Body!.transformToByteArray()));
-        console.log(`File "${fileName}" downloaded successfully.`);
+        await s3Client.send(command);
+        console.log(`Deleted ${s3Key} from S3.`);
     } catch (error) {
-        console.error(`Error downloading file "${fileName}" from temporary bucket:`, error);
+        console.error(`Error deleting ${s3Key} from S3:`, error);
         throw error;
     }
 }
 
-// Function to upload a file to the permanent bucket
-async function uploadFileToPermBucket(filePath: string, fileName: string): Promise<void> {
-    console.log(`Uploading "${fileName}" to permanent bucket...`);
+
+
+/**
+ * Uploads a package to the S3 bucket, organized by name and version.
+ * @param {string} localPath - The local file path of the zip.
+ * @param {string} packageName - The name of the package.
+ * @param {string} version - The version of the package.
+ */
+async function uploadPackageToS3(localPath: string, packageName: string, version: string): Promise<string> {
+    const s3Key = getS3Key(packageName, version);
+
+    console.log(`Uploading package to S3 at ${s3Key}...`);
+
     try {
-        const fileStream = fs.createReadStream(filePath);
+        const fileStream = fs.createReadStream(localPath);
         const command = new PutObjectCommand({
             Bucket: PERMANENT_BUCKET,
-            Key: fileName,
+            Key: s3Key,
             Body: fileStream
         });
-        const data = await s3Client.send(command);
-        console.log(`File "${fileName}" uploaded successfully.`);
+        await s3Client.send(command);
+
+        console.log(`Package uploaded successfully to S3: ${s3Key}`);
+        return s3Key; // Return the S3 key  to put in the storage
     } catch (error) {
-        console.error(`Error uploading file "${fileName}" to permanent bucket:`, error);
+        console.error(`Error uploading package to S3 at ${s3Key}:`, error);
         throw error;
     }
 }
+
+/**
+ * Checks if a package already exists in the S3 bucket at the structured location.
+ * @param {string} packageName - The name of the package.
+ * @param {string} version - The version of the package.
+ * @returns {Promise<boolean>} - Whether the package exists.
+ */
+async function doesPackageExistInS3(packageName: string, version: string): Promise<boolean> {
+    const s3Key = getS3Key(packageName, version);
+
+    try {
+        const command = new HeadObjectCommand({
+            Bucket: PERMANENT_BUCKET,
+            Key: s3Key
+        });
+        await s3Client.send(command);
+
+        console.log(`Package already exists in S3 at ${s3Key}.`);
+        return true;
+    } catch (error: any) {
+        if (error.name === 'NotFound') {
+            console.log(`Package does not exist in S3 at ${s3Key}.`);
+            return false;
+        }
+        console.error(`Error checking for package in S3:`, error);
+        throw error;
+    }
+}
+
+
 
 /**
  * Retrieves the GitHub repository URL from an npm package URL.
@@ -243,97 +279,90 @@ async function runTests() {
  * @param {string} filePath - The path to the file containing the URLs.
  * @returns {Promise<void>} A promise that resolves when all URLs have been processed.
  */
+/**
+ * Processes a file containing URLs and performs actions like evaluating metrics and handling S3 uploads.
+ * 
+ * @param {string} filePath - Path to the file containing URLs.
+ */
 async function processUrls(filePath: string): Promise<void> {
     logger.info(`Processing URLs from file: ${filePath}`);
-    let status = await OCTOKIT.rateLimit.get();
-    logger.debug(`Rate limit status: ${status.data.rate.remaining} remaining out of ${status.data.rate.limit}`);
 
     const urls: string[] = fs.readFileSync(filePath, 'utf-8').split('\n');
     const githubUrls: [string, string][] = [];
 
-
-
+    // Parse and filter GitHub URLs from the input file
     for (const url of urls) {
-        url.trim();
-        // Skip empty lines
-        if (url === '') continue;
+        const trimmedUrl = url.trim();
+        if (!trimmedUrl) continue;
 
-        if (url.includes('github.com')) {
-            // If it's already a GitHub URL, add it to the list
-            githubUrls.push([url, url]);
-        } else if (url.includes('npmjs.com')) {
-            // If it's an npm URL, try to get the GitHub URL
-            const githubUrl = await getGithubUrlFromNpm(url);
+        if (trimmedUrl.includes('github.com')) {
+            githubUrls.push([trimmedUrl, trimmedUrl]);
+        } else if (trimmedUrl.includes('npmjs.com')) {
+            const githubUrl = await getGithubUrlFromNpm(trimmedUrl);
             if (githubUrl) {
-                githubUrls.push([url,githubUrl]);
+                githubUrls.push([trimmedUrl, githubUrl]);
             }
         }
     }
 
-    // Print the github urls
     logger.debug('GitHub URLs:');
     for (const url of githubUrls) {
         logger.debug(`\t${url[0]} -> ${url[1]}`);
     }
 
-    logger.debug('URLs processed. Starting evaluation...');
     // Process each GitHub URL
     for (const url of githubUrls) {
         const netScore = new NetScore(url[0], url[1]);
+        const packageName = extractPackageName(netScore.NativeURL);
+        const tempDownloadPath = `/${packageName}/Package.zip`;
+
+        // Extract owner and repo from the GitHub URL
+        const ownerRepo = new URL(netScore.NativeURL).pathname.split('/').filter(Boolean);
+        const owner = ownerRepo[0];
+        const repo = ownerRepo[1];
+
+        // Get the package version
+        const version = await getPackageVersion(owner, repo);
+
+        // Check if the package already exists in S3
+        const packageExists = await doesPackageExistInS3(packageName, version);
+        if (packageExists) {
+            console.log(`Skipping upload for ${packageName} version ${version} as it already exists in S3.`);
+            try {
+                await deletePackageFromS3(packageName, version);
+                console.log(`Successfully deleted existing package ${packageName} version ${version} from S3.`);
+
+                const s3Key = await uploadPackageToS3(tempDownloadPath, packageName, version);
+                console.log(`Successfully uploaded ${packageName} version ${version} to S3 with key: ${s3Key}`);
+                continue;
+            } catch (error) {
+                console.error(`Error processing package ${packageName} version ${version}:`, error);
+                continue;
+            }
+        }
+
+        // Evaluate the metrics
         const result = await netScore.evaluate();
         process.stdout.write(netScore.toString() + '\n');
         logger.debug(netScore.toString());
 
         if (netScore.netScore < 0.5) {
             console.log(`Skipping ${url[0]} due to low net score of ${netScore.netScore}.`);
-            continue;  // Skip to the next URL in githubUrls
-        }
-        //additions for writing to database
-
-        const package_name = extractPackageName(netScore.NativeURL);
-        const fileName = `${package_name}.zip`;
-        const tempDownloadPath = `/tmp/${fileName}`;
-        
-        // Step 1: Check if the file exists in the temporary S3 bucket
-        console.log(`Checking if file "${fileName}" exists in the temporary S3 bucket...`);
-        const fileExists = await checkFileInTempBucket(fileName);
-        if (!fileExists) {
-            console.error(`File "${fileName}" not found in temporary S3 bucket. Skipping this package.`);
             continue;
         }
-        
-        // Step 2: Download the file from the temporary S3 bucket
-        console.log(`Attempting to download "${fileName}" from temporary bucket to "${tempDownloadPath}"...`);
+
+        // Upload package to S3
         try {
-            await downloadFileFromTempBucket(fileName, tempDownloadPath);
-            console.log(`File "${fileName}" downloaded successfully to "${tempDownloadPath}".`);
+            const s3Key = await uploadPackageToS3(tempDownloadPath, packageName, version);
         } catch (error) {
-            console.error("Error during download process. Skipping this package.");
+            console.error(`Error processing package ${packageName} version ${version}:`, error);
             continue;
         }
-        
-        // Step 3: Upload the file to the permanent S3 bucket, confirming no duplicate upload
-        console.log(`Preparing to upload "${fileName}" to the permanent S3 bucket...`);
-        try {
-            await uploadFileToPermBucket(tempDownloadPath, fileName);
-            console.log(`File "${fileName}" uploaded successfully to the permanent bucket.`);
-        } catch (error) {
-            console.error("Error during upload process. Skipping this package.");
-            continue;
-        }
-        
-        // Step 4: Delete the file from local EC2 storage after upload completes
-        console.log(`Attempting to delete temporary file "${tempDownloadPath}" from EC2...`);
-        try {
-            fs.unlinkSync(tempDownloadPath);
-            console.log(`Temporary file "${tempDownloadPath}" deleted from EC2.`);
-        } catch (error) {
-            console.error(`Error deleting temporary file "${tempDownloadPath}":`, error);
-        }
-        
-        
 
+        // Generate S3 key
+        const S3Key = getS3Key(packageName, version);
 
+        // Insert package details into the database
         const insertPackageQuery = `
         INSERT INTO packages (
             package_name, repo_link, is_internal, package_version, s3_link, net_score, final_metric, final_metric_latency
@@ -346,17 +375,17 @@ async function processUrls(filePath: string): Promise<void> {
         RETURNING package_id;
         `;
 
-        // Setting placeholder values for fields we're not using
         const packageValues = [
-            package_name,            // package_name
-            netScore.NativeURL,      // repo_link
-            false,                   // is_internal, setting to `false` as a default
-            '1.0.0',                 // package_version, setting to a placeholder like '1.0.0'
-            null,                    // s3_link, set to `null` if no link is available
-            netScore.netScore,       // net_score
-            null,                    // final_metric, set to `null` as a placeholder
-            netScore.responseTime    // final_metric_latency
+            packageName,
+            netScore.NativeURL,
+            false,
+            version,
+            S3Key,
+            netScore.netScore,
+            null,
+            netScore.responseTime,
         ];
+
         let packageId;
         try {
             const packageRes = await pool.query(insertPackageQuery, packageValues);
@@ -364,42 +393,14 @@ async function processUrls(filePath: string): Promise<void> {
             logger.info(`Package inserted with package_id: ${packageId}`);
         } catch (err) {
             if (err instanceof Error) {
-                logger.info(`Error inserting package: ${err.message}`);
+                logger.error(`Error inserting package: ${err.message}`);
             } else {
-                logger.info('Unexpected error inserting package');
+                logger.error('Unexpected error inserting package');
             }
-            return;
+            continue;
         }
 
-        // // INSERT DEPENDENCIES
-        // const insertDependencyQuery = `
-        // INSERT INTO dependencies (package_id, dependency_url, is_internal)
-        // VALUES ($1, $2, $3)
-        // RETURNING dependency_id;
-        // `;
-
-        // //get ALL dependencies, version requirements of them, ^1.1.1, *, ~1,2,0
-        // const dependencies = netScore.dependencies;  // Assume this array contains dependency URLs
-        // for (const dep of dependencies) {
-        //     const dependencyValues = [
-        //         packageId,                       // Foreign key to link dependency to the package
-        //         dep.url,                         // Dependency URL
-        //         dep.isInternal                   // Whether the dependency is internal
-        //     ];
-
-        //     try {
-        //         const dependencyRes = await pool.query(insertDependencyQuery, dependencyValues);
-        //         logger.info(`Dependency inserted with dependency_id: ${dependencyRes.rows[0].dependency_id}`);
-        //     } catch (err) {
-        //         if (err instanceof Error) {
-        //             logger.error(`Error inserting dependency: ${err.message}`);
-        //         } else {
-        //             logger.error('Unexpected error inserting dependency');
-        //         }
-        //     }
-        // }
-
-        // INSERT METRICS AND SCORES
+        // Insert metrics into the database
         const insertMetricsQuery = `
         INSERT INTO metrics (package_id, ramp_up_time, bus_factor, correctness, license_compatibility, maintainability)
         VALUES ($1, $2, $3, $4, $5, $6)
@@ -414,12 +415,12 @@ async function processUrls(filePath: string): Promise<void> {
         `;
 
         const metricsValues = [
-            packageId,  // NEED TO put actual package id USING EXAMPLE PAKACGE ID
+            packageId,
             netScore.rampUp.rampUp,
             netScore.busFactor.busFactor,
             netScore.correctness.correctness,
             netScore.license.license,
-            netScore.maintainability.maintainability
+            netScore.maintainability.maintainability,
         ];
 
         try {
@@ -432,47 +433,9 @@ async function processUrls(filePath: string): Promise<void> {
                 logger.error('Unexpected error inserting metrics');
             }
         }
-
-          // Insert the latencies into the `scores` table
-          const insertScoresQuery = `
-          INSERT INTO scores (package_id, net_score, ramp_up_latency, bus_factor_latency, correctness_latency, license_latency, maintainability_latency)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (package_id) 
-          DO UPDATE SET 
-              net_score = EXCLUDED.net_score,
-              ramp_up_latency = EXCLUDED.ramp_up_latency,
-              bus_factor_latency = EXCLUDED.bus_factor_latency,
-              correctness_latency = EXCLUDED.correctness_latency,
-              license_latency = EXCLUDED.license_latency,
-              maintainability_latency = EXCLUDED.maintainability_latency
-          RETURNING score_id;
-      `;
-      
-     
-      const scoresValues = [
-          packageId,  // EXAMPLE PACAGE 
-          netScore.netScore,       
-          netScore.rampUp.responseTime, 
-          netScore.busFactor.responseTime, 
-          netScore.correctness.responseTime, 
-          netScore.license.responseTime, 
-          netScore.maintainability.responseTime 
-      ];
-      
-      try {
-          const scoresRes = await pool.query(insertScoresQuery, scoresValues);
-          logger.info(`Scores inserted with score_id: ${scoresRes.rows[0].score_id}`);
-      } catch (err) {
-          if (err instanceof Error) {
-              logger.error(`Error inserting scores: ${err.message}`);
-          } else {
-              logger.error('Unexpected error inserting scores');
-          }
-      }
-
-
     }
 }
+
 
 
 function extractPackageName(repoUrl: string) {
