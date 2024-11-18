@@ -102,6 +102,6 @@
     "types/**/*.d.ts"
   ],
   "exclude": [
-    "src/S3Connect.ts"
+    "src/metricCalculation/S3Connect.ts"
   ]
 }
