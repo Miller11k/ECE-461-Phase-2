@@ -80,7 +80,7 @@ import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 async function deletePackageFromS3(packageName: string, version: string): Promise<void> {
     const s3Key = `${packageName}/${version}/Package.zip`; // Adjust key as needed
     const command = new DeleteObjectCommand({
-        Bucket: process.env.S3_BUCKET_NAME,
+        Bucket: PERMANENT_BUCKET,
         Key: s3Key,
     });
 
