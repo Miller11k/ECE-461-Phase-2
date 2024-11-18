@@ -100,8 +100,8 @@
   "include": [
     "src/**/*.ts",
     "types/**/*.d.ts"
-  ],
+, "src/MetricsCalculation/S3Connect.ts"  ],
   "exclude": [
-    "src/metricCalculation/S3Connect.ts"
+    "src/MetricsCalculation/S3Connect.ts"
   ]
 }
