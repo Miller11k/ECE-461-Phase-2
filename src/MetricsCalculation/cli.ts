@@ -289,10 +289,12 @@ async function runTests() {
  * 
  * @param {string} filePath - Path to the file containing URLs.
  */
-async function processUrls(filePath: string): Promise<void> {
+async function processUrls(filePath: string[]): Promise<void> {
     logger.info(`Processing URLs from file: ${filePath}`);
 
-    const urls: string[] = fs.readFileSync(filePath, 'utf-8').split('\n');
+
+    // const urls: string[] = fs.readFileSync(filePath, 'utf-8').split('\n');
+    const urls= filePath;
     const githubUrls: [string, string][] = [];
 
     // Parse and filter GitHub URLs from the input file
@@ -314,9 +316,14 @@ async function processUrls(filePath: string): Promise<void> {
     for (const url of githubUrls) {
         logger.debug(`\t${url[0]} -> ${url[1]}`);
     }
+    
+    console.log(`${githubUrls}`)
 
     // Process each GitHub URL
     for (const url of githubUrls) {
+        
+    
+
         const netScore = new NetScore(url[0], url[1]);
         const packageName = extractPackageName(netScore.NativeURL);
         const tempDownloadPath = `/${packageName}/Package.zip`;
@@ -448,37 +455,66 @@ function extractPackageName(repoUrl: string) {
     return urlParts[urlParts.length - 1];
 }
 
-/**
- * The main function. Handles command line arguments and executes the appropriate functions.
- */
+// /**
+//  * The main function. Handles command line arguments and executes the appropriate functions.
+//  */
+// function main() {
+//     logger.info('Starting CLI...');
+//     logger.info(`LOG_FILE: ${logFile}`);
+//     logger.info('GITHUB_TOKEN: [REDACTED]');
+//     logger.info(`LOG_LEVEL: ${logLevel}`);
+//     const argv = yargs(hideBin(process.argv))
+//         .command('test', 'Run test suite', {}, () => {
+//             runTests();
+//         })
+//         .command('$0 <file>', 'Process URLs from a file', (yargs) => {
+//             yargs.positional('file', {
+//                 describe: 'Path to the file containing URLs',
+//                 type: 'string'
+//             });
+//         }, (argv) => {
+//             let filename: string = argv.file as string;
+//             if (fs.existsSync(filename)) {
+//                 processUrls(filename);
+//             } else {
+//                 console.error(`File not found: ${argv.file}`);
+//                 showUsage();
+//                 process.exit(1);
+//             }
+//         })
+//         .help()
+//         .alias('help', 'h')
+//         .argv;
+
+//     logger.info('CLI finished.\n');
+// }
 function main() {
     logger.info('Starting CLI...');
     logger.info(`LOG_FILE: ${logFile}`);
     logger.info('GITHUB_TOKEN: [REDACTED]');
     logger.info(`LOG_LEVEL: ${logLevel}`);
+
     const argv = yargs(hideBin(process.argv))
-        .command('test', 'Run test suite', {}, () => {
-            runTests();
-        })
-        .command('$0 <file>', 'Process URLs from a file', (yargs) => {
-            yargs.positional('file', {
-                describe: 'Path to the file containing URLs',
-                type: 'string'
-            });
-        }, (argv) => {
-            let filename: string = argv.file as string;
-            if (fs.existsSync(filename)) {
-                processUrls(filename);
-            } else {
-                console.error(`File not found: ${argv.file}`);
-                showUsage();
-                process.exit(1);
-            }
-        })
+        .usage('Usage: cli <url>')
+        .demandCommand(1, 'You must provide a URL to process.')
         .help()
         .alias('help', 'h')
-        .argv;
+        .parseSync(); // Ensures that the result is not a Promise
 
-    logger.info('CLI finished.\n');
+    const inputUrl: string[] = argv._.map((url) => url.toString());
+
+    if (!inputUrl) {
+        console.error('Error: Please provide a valid URL.');
+        process.exit(1);
+    }
+
+    processUrls(inputUrl)
+        .then(() => {
+            logger.info('Processing complete.');
+        })
+        .catch((error) => {
+            console.error('Error processing the URL:', error);
+            process.exit(1);
+        });
 }
-main();
+main()
