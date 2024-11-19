@@ -18,7 +18,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "22.8.0"
+          node-version: "16.x"  # Use a valid Node.js version
 
       - name: Set up Python
         uses: actions/setup-python@v2
@@ -44,33 +44,19 @@ jobs:
           echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
           echo "DB_SSL_CA=${{ secrets.DB_SSL_CA }}" >> .env
 
-      - name: Install Node.js dependencies
-        run: npm install
+
       - name: Make 'run' script executable
         run: chmod +x run
+
+      - name: Install Node.js dependencies
+        run: ./run install
+
+      - name: Build the project
+        run: ./run build
+
       - name: Run checker script
         run: python3 checker/checker.py
 
-  deploy:
-    needs: validate
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Install SSH client
-        run: sudo apt-get update && sudo apt-get install -y openssh-client
-
-      - name: Add SSH key
-        uses: webfactory/ssh-agent@v0.7.0
-        with:
-          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
-
-      - name: Deploy Code to EC2
-        run: |
-          ssh -o StrictHostKeyChecking=no ec2-user@ec2-107-23-20-150.compute-1.amazonaws.com '
-          cd /ECE-461-Phase-2 &&
-          git pull &&
-          npm install --production &&
-          ./run build
-          '
+      - name: Display run.log on failure
+        if: failure()
+        run: cat logs/run.log
