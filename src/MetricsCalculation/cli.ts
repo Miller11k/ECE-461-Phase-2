@@ -115,7 +115,7 @@ async function uploadPackageToS3(localPath: string, packageName: string, version
         });
         await s3Client.send(command);
 
-        console.log(`Package uploaded successfully to S3: ${s3Key}`);
+        console.error(`Package uploaded successfully to S3: ${s3Key}`);
         return s3Key; // Return the S3 key  to put in the storage
     } catch (error) {
         console.error(`Error uploading package to S3 at ${s3Key}:`, error);
@@ -143,7 +143,7 @@ async function doesPackageExistInS3(packageName: string, version: string): Promi
         return true;
     } catch (error: any) {
         if (error.name === 'NotFound') {
-            console.log(`Package does not exist in S3 at ${s3Key}.`);
+            console.error(`Package does not exist in S3 at ${s3Key}.`);
             return false;
         }
         console.error(`Error checking for package in S3:`, error);

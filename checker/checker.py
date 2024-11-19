@@ -62,15 +62,24 @@ def run_urlfile() -> int:
         print(output)
         return 0
 
-    is_valid_output = False
-    try:
-        ndjson_obj = json.loads(output)
-        if isinstance(ndjson_obj, dict):
-            obj_keys = [x.lower() for x in ndjson_obj.keys()]
-            is_valid_output = all(field.lower() in obj_keys for field in ALL_FIELDS)
-    except Exception as e:
-        print(e)
-        pass
+    # Extract JSON objects from the output
+    json_lines = []
+    for line in output.strip().split('\n'):
+        try:
+            ndjson_obj = json.loads(line)
+            json_lines.append(ndjson_obj)
+        except json.JSONDecodeError:
+            continue  # Skip lines that are not valid JSON
+
+    if not json_lines:
+        print_test_result("> URL_FILE output is %s NDJSON!", False, "valid", "not valid")
+        print(output)
+        return total_correct
+    else:
+        is_valid_output = True
+        ndjson_obj = json_lines[0]  # Assuming only one JSON object for the test
+        obj_keys = [x.lower() for x in ndjson_obj.keys()]
+        is_valid_output = all(field.lower() in obj_keys for field in ALL_FIELDS)
 
     print_test_result("> URL_FILE output is %s NDJSON!", is_valid_output, "valid", "not valid")
     if is_valid_output:
@@ -78,11 +87,12 @@ def run_urlfile() -> int:
     else:
         print(output)
         return total_correct
-    
-    module_score = MODULE_SCORE(output)
+
+    module_score = MODULE_SCORE(json.dumps(ndjson_obj))
     print_test_result("> URL_FILE output is a %s module score!", module_score.is_valid(), "valid", "not valid")
     if module_score.is_valid():
         total_correct += 1
+
     
     os.environ["LOG_FILE"] = ""
     command = f"./run {ONE_URL}"
