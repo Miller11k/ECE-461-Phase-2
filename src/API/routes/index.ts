@@ -15,6 +15,7 @@ import deleteTokenRoute from './users/deleteToken.js';
 
 // Import Package Related Routes
 import packageRoutes from "./packages/index.js"
+import packagesRoute from './packages/packages.js'
 
 // Import All Other Needed Routes
 import resetRoute from './other/reset.js'
@@ -38,6 +39,7 @@ router.use('/delete-token', deleteTokenRoute); // Delete a specific token for a 
 
 // Define Package Route
 router.use('/package', packageRoutes);
+router.use('/packages', packagesRoute);
 
 // Define All Other Needed Routes
 router.use('/reset', resetRoute);

@@ -8,7 +8,7 @@ const router = Router();
 
 router.get('/', async (req, res) => {
     // const { regex } = req.body;  // Get regex pattern from API request
-    res.json({ success: true, message: 'TRACKS' });  // Respond with success message
+    
 });
 
 export default router;

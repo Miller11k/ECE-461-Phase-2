@@ -1,4 +1,4 @@
-/* Handles `/package` (POST) */
+/* Handles /package (POST) */
 import { Request, Response, Router } from 'express';
 
 
@@ -7,7 +7,22 @@ const router = Router();
 
 
 router.post('/', async (req, res) => {
-    // const { } = req.body;  // Get data from API request
+    try {
+        // Extract the X-Authorization header
+        const authHeader = req.headers['x-authorization'];
+
+        // Validate the X-Authorization header
+        if (!authHeader || typeof authHeader !== 'string') {
+           res.status(403).json({ error: "Missing or invalid X-Authorization header" });
+           return;
+        }
+
+
+
+    } catch (error) {
+        res.status(500).json({ error: "Internal server error" });
+        return;
+    }
 });
 
 export default router;

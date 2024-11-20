@@ -7,8 +7,21 @@ const router = Router();
 
 
 router.delete('/', async (req, res) => {
-    // const { regex } = req.body;  // Get regex pattern from API request
-    res.json({ success: true, message: 'RESET' });  // Respond with success message
+    try {
+        // Extract the X-Authorization header
+        const authHeader = req.headers['x-authorization'];
+
+        // Validate the X-Authorization header
+        if (!authHeader || typeof authHeader !== 'string') {
+        res.status(403).json({ error: "Missing or invalid X-Authorization header" });
+        return;
+        }
+    } catch (error) {
+        res.status(500).json({ error: "Internal server error" });
+        return;
+    }
+
+
 });
 
 export default router;

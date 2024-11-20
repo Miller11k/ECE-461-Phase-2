@@ -1,4 +1,4 @@
-/* Handles `/package/byRegEx` (POST) */
+/* Handles /packages (POST) */
 import { Request, Response, Router } from 'express';
 
 
@@ -6,8 +6,11 @@ import { Request, Response, Router } from 'express';
 const router = Router();
 
 
-router.post('/byRegEx', async (req, res) => {
+router.post('/', async (req, res) => {
     try {
+        // Extract the offset query parameter (for pagination) and default to "1" if not provided
+        const offset = req.query.offset || "1";
+
         // Extract the X-Authorization header
         const authHeader = req.headers['x-authorization'];
 
