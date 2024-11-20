@@ -13,6 +13,13 @@ import deleteTokenRoute from './users/deleteToken.js';
 // Import Metric Related routes
 // import insertMetricRoute from './metrics/insertMetric';
 
+// Import Package Related Routes
+import packageRoutes from "./packages/index.js"
+
+// Import All Other Needed Routes
+import resetRoute from './other/reset.js'
+import tracksRoute from './other/tracks.js'
+
 // Create a router instance to group and manage related user routes
 const router = Router();
 
@@ -28,6 +35,13 @@ router.use('/delete-token', deleteTokenRoute); // Delete a specific token for a 
 
 // Placeholder for future metric-related route
 // router.use('/insert-metric', insertMetricRoute);
+
+// Define Package Route
+router.use('/package', packageRoutes);
+
+// Define All Other Needed Routes
+router.use('/reset', resetRoute);
+router.use('/tracks', tracksRoute);
 
 // Export the configured router
 export default router;
