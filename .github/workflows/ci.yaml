@@ -107,15 +107,22 @@ jobs:
           echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
           echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
           echo "DB_SSL_CA=${{ secrets.DB_SSL_CA }}" >> .env
-      - name: Install Node.js dependencies
-        run: npm install
-
-
-      - name: Build the project
-        run: npm run build  # Or use your build command, e.g., ./run build
 
       - name: Make 'run' script executable
         run: chmod +x run
 
+      - name: Install Node.js dependencies
+        run: ./run install
+
+      - name: Build the project
+        run: ./run build
+        
+      - name: List directory contents
+        run: ls -la
+
       - name: Run checker script
         run: python3 checker/checker.py
+
+      - name: Display run.log on failure
+        if: failure()
+        run: cat logs/run.log
