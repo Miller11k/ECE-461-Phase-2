@@ -119,13 +119,46 @@ jobs:
 
       - name: Build the project
         run: ./run build
-
+      - name: List repository files
+        run: ls -R
       - name: List dist directory contents
         run: ls -la dist
 
       - name: Run checker script
         run: python3 checker/checker.py
 
+      - name: Display run.log on failure
+        if: failure()
+        run: cat logs/run.log
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install Node.js dependencies
+        run: ./run install
+
+      - name: Install SSH client
+        run: sudo apt-get update && sudo apt-get install -y openssh-client
+      - name: Build the project
+        run: ./run build
+
+      - name: Add SSH key
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+      - name: Run checker script
+        run: python3 checker/checker.py
+
+      - name: Deploy Code to EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no ec2-user@ec2-107-23-20-150.compute-1.amazonaws.com '
+          cd /ECE-461-Phase-2 &&
+          git pull &&
+          npm install --production &&
+          ./run build
+          '
       - name: Display run.log on failure
         if: failure()
         run: cat logs/run.log
