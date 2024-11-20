@@ -120,7 +120,7 @@ jobs:
       - name: Build the project
         run: ./run build
 
-      - name: List directory contents
+      - name: List dist directory contents
         run: ls -la dist
 
       - name: Run checker script
