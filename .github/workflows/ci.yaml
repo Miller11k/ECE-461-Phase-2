@@ -112,13 +112,16 @@ jobs:
         run: chmod +x run
 
       - name: Install Node.js dependencies
-        run: ./run install
+        run: npm install --include=dev
+
+      - name: Verify TypeScript Installation
+        run: npx tsc --version
 
       - name: Build the project
         run: ./run build
-        
+
       - name: List directory contents
-        run: ls -la
+        run: ls -la dist
 
       - name: Run checker script
         run: python3 checker/checker.py
