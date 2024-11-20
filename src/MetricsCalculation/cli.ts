@@ -115,7 +115,7 @@ async function uploadPackageToS3(localPath: string, packageName: string, version
         });
         await s3Client.send(command);
 
-        console.error(`Package uploaded successfully to S3: ${s3Key}`);
+        console.log(`Package uploaded successfully to S3: ${s3Key}`);
         return s3Key; // Return the S3 key  to put in the storage
     } catch (error) {
         console.error(`Error uploading package to S3 at ${s3Key}:`, error);
@@ -143,7 +143,7 @@ async function doesPackageExistInS3(packageName: string, version: string): Promi
         return true;
     } catch (error: any) {
         if (error.name === 'NotFound') {
-            console.error(`Package does not exist in S3 at ${s3Key}.`);
+            console.log(`Package does not exist in S3 at ${s3Key}.`);
             return false;
         }
         console.error(`Error checking for package in S3:`, error);
@@ -495,26 +495,52 @@ function main() {
     logger.info(`LOG_LEVEL: ${logLevel}`);
 
     const argv = yargs(hideBin(process.argv))
-        .usage('Usage: cli <url>')
-        .demandCommand(1, 'You must provide a URL to process.')
+        .command('test', 'Run test suite', {}, () => {
+            runTests();
+        })
+        .command('$0 [file_or_url...]', 'Process URLs from a file or directly', (yargs) => {
+            yargs.positional('file_or_url', {
+                describe: 'Path to the file containing URLs or URLs themselves',
+                type: 'string'
+            });
+        }, (argv) => {
+            const inputs: string[] = argv.file_or_url as string[];
+
+            if (inputs.length === 0) {
+                console.error('Error: No input provided.');
+                process.exit(1);
+            }
+
+            // Check if the first input is a file
+            const firstInput = inputs[0];
+            if (fs.existsSync(firstInput)) {
+                // Read URLs from the file
+                const urls: string[] = fs.readFileSync(firstInput, 'utf-8').split('\n').map(line => line.trim()).filter(line => line !== '');
+                processUrls(urls)
+                    .then(() => {
+                        logger.info('Processing complete.');
+                    })
+                    .catch((error) => {
+                        console.error('Error processing the URLs:', error);
+                        process.exit(1);
+                    });
+            } else {
+                // Treat inputs as URLs
+                const urls: string[] = inputs;
+                processUrls(urls)
+                    .then(() => {
+                        logger.info('Processing complete.');
+                    })
+                    .catch((error) => {
+                        console.error('Error processing the URLs:', error);
+                        process.exit(1);
+                    });
+            }
+        })
         .help()
         .alias('help', 'h')
-        .parseSync(); // Ensures that the result is not a Promise
+        .parseSync();
 
-    const inputUrl: string[] = argv._.map((url) => url.toString());
-
-    if (!inputUrl) {
-        console.error('Error: Please provide a valid URL.');
-        process.exit(1);
-    }
-
-    processUrls(inputUrl)
-        .then(() => {
-            logger.info('Processing complete.');
-        })
-        .catch((error) => {
-            console.error('Error processing the URL:', error);
-            process.exit(1);
-        });
+    logger.info('CLI finished.\n');
 }
 main()

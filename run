@@ -11,10 +11,6 @@ echo "Running from $(pwd)" > $LOGFILE
 
 # Function to install and use the latest version of Node.js
 install_latest_node() {
-  if [ "$CI" = "true" ]; then
-    echo "CI environment detected. Skipping Node.js installation." >> $LOGFILE
-    return
-  fi
   echo "Installing the latest version of Node.js..." >> $LOGFILE
   # Detect the platform (Linux/Mac/Windows)
   unameOut="$(uname -s)"
@@ -56,10 +52,6 @@ install_latest_node() {
 build() {
   echo "Building the project..." >> logs/run.log
   npx tsc
-  if [ $? -ne 0 ]; then
-    echo "TypeScript compilation failed." >> logs/run.log
-    exit 1
-  fi
   chmod +x dist/cli.js 
 }
 
