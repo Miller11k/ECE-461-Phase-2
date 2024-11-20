@@ -1,9 +1,72 @@
+# name: CI/CD Pipeline
+
+# on:
+#   push:
+#     branches:
+#       - cli_to_RDS
+#   pull_request:
+#     branches:
+#       - cli_to_RDS
+
+# jobs:
+#   validate:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout repository
+#         uses: actions/checkout@v3
+
+#       - name: Set up Node.js
+#         uses: actions/setup-node@v3
+#         with:
+#           node-version: "16.x"  # Use a valid Node.js version
+
+#       - name: Set up Python
+#         uses: actions/setup-python@v2
+#         with:
+#           python-version: "3.10"
+
+#       - name: Install python-dotenv
+#         run: pip install python-dotenv
+
+#       - name: Setup .env file
+#         run: |
+#           echo "GITHUB_TOKEN=${{ secrets.API_TOKEN }}" >> .env
+#           echo "LOG_LEVEL=info" >> .env
+#           echo "LOG_FILE=/tmp/checker.log" >> .env
+#           echo "S3_PERMANENT_BUCKET_NAME=${{ secrets.S3_PERMANENT_BUCKET_NAME }}" >> .env
+#           echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
+#           echo "IAM_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
+#           echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
+#           echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
+#           echo "DB_USER=${{ secrets.DB_USER }}" >> .env
+#           echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+#           echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
+#           echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
+#           echo "DB_SSL_CA=${{ secrets.DB_SSL_CA }}" >> .env
+
+
+#       - name: Make 'run' script executable
+#         run: chmod +x run
+
+#       - name: Install Node.js dependencies
+#         run: ./run install
+
+#       - name: Build the project
+#         run: ./run build
+
+#       - name: Run checker script
+#         run: python3 checker/checker.py
+
+#       - name: Display run.log on failure
+#         if: failure()
+#         run: cat logs/run.log
 name: CI/CD Pipeline
 
 on:
   push:
     branches:
       - cli_to_RDS
+      - 21-testing-code-coverage-and-integration
   pull_request:
     branches:
       - cli_to_RDS
@@ -11,6 +74,7 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -18,7 +82,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "16.x"  # Use a valid Node.js version
+          node-version: "22.8.0"
 
       - name: Set up Python
         uses: actions/setup-python@v2
@@ -28,7 +92,7 @@ jobs:
       - name: Install python-dotenv
         run: pip install python-dotenv
 
-      - name: Setup .env file
+      - name: Setup .env file and Install Dependencies
         run: |
           echo "GITHUB_TOKEN=${{ secrets.API_TOKEN }}" >> .env
           echo "LOG_LEVEL=info" >> .env
@@ -44,19 +108,5 @@ jobs:
           echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
           echo "DB_SSL_CA=${{ secrets.DB_SSL_CA }}" >> .env
 
-
-      - name: Make 'run' script executable
-        run: chmod +x run
-
-      - name: Install Node.js dependencies
-        run: ./run install
-
-      - name: Build the project
-        run: ./run build
-
       - name: Run checker script
         run: python3 checker/checker.py
-
-      - name: Display run.log on failure
-        if: failure()
-        run: cat logs/run.log
