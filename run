@@ -52,7 +52,7 @@ install_latest_node() {
 build() {
   echo "Building the project..." >> logs/run.log
   npx tsc
-  chmod +x dist/cli.js 
+  chmod +x dist/metricsCalculation/cli.js 
 }
 
 
@@ -76,7 +76,7 @@ case $1 in
   *)
     # build # Uncomment this line if you want to build the project before running the script
     echo "Running the script with '$@'..." >> logs/run.log
-    ./dist/cli.js "$@" 
+    ./dist/metricsCalculation/cli.js "$@" 
     exitCode=$?
     echo "Script exited with code $exitCode" >> logs/run.log
     ;;
