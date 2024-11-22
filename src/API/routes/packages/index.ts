@@ -17,7 +17,7 @@ router.post('/byRegEx', byRegexPackageRoute); // POST /package/byRegEx
 // More general routes go last
 router.post('/:id', updatePackageRoute); // POST /package/:id
 router.get('/:id', getPackageRoute); // GET /package/:id
-router.get('/', invalidGetPackageRoute); // POST /package
+router.get('/', invalidGetPackageRoute); // GET /package
 
 // Root route for creating packages
 router.post('/', createPackageRoute); // POST /package
