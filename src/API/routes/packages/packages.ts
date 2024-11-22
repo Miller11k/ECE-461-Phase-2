@@ -56,6 +56,29 @@ router.post('/', async (req: Request, res: Response) => {
             return;
         }
 
+        // Check if the request body contains exactly one query with "Name" set to "*"
+        // and no "Version" field specified
+        if (
+            packageQueries.length === 1 && // Ensure there's only one query in the request body
+            packageQueries[0].Name === "*" && // Check if the Name field is a wildcard ("*")
+            !packageQueries[0].Version // Ensure the Version field is not provided
+        ) {
+            // Special case: Fetch all packages with pagination applied
+            const allPackages = await packagesDBClient.query(
+                `SELECT "Version", "Name", "ID" FROM ${packageDB} LIMIT $1 OFFSET $2`, // SQL query to fetch packages
+                [max_responses, offset] // Apply pagination using LIMIT and OFFSET
+            );
+
+            // Respond with the fetched packages in a structured JSON format
+            res.status(200).json(allPackages.rows.map(row => ({
+                Version: row.Version, // Package version
+                Name: row.Name,       // Package name
+                ID: row.ID,           // Package ID
+            })));
+            return; // Exit early since the special case is handled
+        }
+
+
         // If no queries are provided, fetch all packages with pagination
         if (packageQueries.length === 0) {
             const allPackages = await packagesDBClient.query(
