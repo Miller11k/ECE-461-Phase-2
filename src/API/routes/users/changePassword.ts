@@ -1,6 +1,7 @@
 import { Request, Response, Router } from 'express';
 import { createSalt, generatePassword } from '../../helpers/passwordHelper.js';
 import { userDBClient, employeeDB } from '../../config/dbConfig.js';
+import { generateAuthenticationToken } from '../../helpers/jwtHelper.js';
 
 // Create a new router instance to define and group related routes
 const router = Router();
@@ -31,7 +32,7 @@ router.post('/', async (req, res) => {
   try {
     // Get user details along with the salt and existing tokens
     const result = await userDBClient.query(
-      `SELECT salt, password, tokens FROM ${employeeDB} WHERE username = $1`,
+      `SELECT first_name, last_name, is_admin, salt, password, tokens FROM ${employeeDB} WHERE username = $1`,
       [username]
     );
 
@@ -41,7 +42,7 @@ router.post('/', async (req, res) => {
       return;
     }
 
-    const { salt, password: currentPassword, tokens } = result.rows[0]; // Get user data
+    const { first_name, last_name, is_admin, salt, password: currentPassword, tokens } = result.rows[0]; // Get user data
     
     // Validate the token
     if (!tokens || !tokens.includes(token)) {
@@ -60,11 +61,12 @@ router.post('/', async (req, res) => {
     // Generate a new salt and hashed password
     const newSalt = createSalt();
     const newHashedPassword = generatePassword(newPassword, newSalt);
+    const new_x_authentication = generateAuthenticationToken(first_name, last_name, username, is_admin, newSalt);
 
     // Update the password in the database
     await userDBClient.query(
-      `UPDATE ${employeeDB} SET password = $1, salt = $2 WHERE username = $3`,
-      [newHashedPassword, newSalt, username]
+      `UPDATE ${employeeDB} SET password = $1, "X-Authorization" = $2, salt = $3 WHERE username = $4`,
+      [newHashedPassword, new_x_authentication, newSalt, username]
     );
 
     res.json({ success: true, message: 'Password changed successfully' });  // Respond with success message
