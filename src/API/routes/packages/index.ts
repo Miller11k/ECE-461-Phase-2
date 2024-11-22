@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import createPackageRoute from './create.js';
 import getPackageRoute from './get.js';
+import invalidGetPackageRoute from './invalidGet.js'
 import updatePackageRoute from './update.js';
 import ratePackageRoute from './rate.js';
 import costPackageRoute from './cost.js';
@@ -16,6 +17,7 @@ router.post('/byRegEx', byRegexPackageRoute); // POST /package/byRegEx
 // More general routes go last
 router.post('/:id', updatePackageRoute); // POST /package/:id
 router.get('/:id', getPackageRoute); // GET /package/:id
+router.get('/', invalidGetPackageRoute); // POST /package
 
 // Root route for creating packages
 router.post('/', createPackageRoute); // POST /package
