@@ -61,3 +61,24 @@ export function decodeAuthenticationToken(
     return null;
   }
 }
+
+// Example usage:
+// const secret = "your_very_secure_secret_key";
+// const token = generateAuthenticationToken('John', 'Lockely', 'jLockely', false, secret);
+// console.log('Generated Token:', token);
+
+// const decoded = decodeAuthenticationToken("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmaXJzdE5hbWUiOiJNaWxsZXIiLCJsYXN0TmFtZSI6IktvZGlzaCIsInVzZXJuYW1lIjoibWtvZGlzaCIsImlzQWRtaW4iOnRydWV9.G9xdq6Z04DNGgmD7SNa_r5X78I8K1lHhYHJH6pCnTYI", "38cc7488ffdc60fe2c83740ba64d3fdc");
+// if (decoded) {
+//   console.log('\nDecoded Payload:', decoded);
+// }
+// console.log('\nIndividual Components:');
+// if (decoded) {
+//   // Destructure the payload into individual variables
+//   const { firstName, lastName, username, isAdmin } = decoded;
+
+//   // Log the variables to verify
+//   console.log('First Name:', firstName);
+//   console.log('Last Name:', lastName);
+//   console.log('Username:', username);
+//   console.log('Is Admin:', isAdmin);
+// }
