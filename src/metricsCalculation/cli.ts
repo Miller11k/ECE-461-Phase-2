@@ -348,22 +348,22 @@ async function processUrls(filePath: string[]): Promise<void> {
         // Get the package version
         const version = await getPackageVersion(owner, repo);
 
-        // // Check if the package already exists in S3
-        // const packageExists = await doesPackageExistInS3(packageName, version);
-        // if (packageExists) {
-        //     console.log(`Skipping upload for ${packageName} version ${version} as it already exists in S3.`);
-        //     try {
-        //         await deletePackageFromS3(packageName, version);
-        //         console.log(`Successfully deleted existing package ${packageName} version ${version} from S3.`);
+        // Check if the package already exists in S3
+        const packageExists = await doesPackageExistInS3(packageName, version);
+        if (packageExists) {
+            console.log(`Skipping upload for ${packageName} version ${version} as it already exists in S3.`);
+            try {
+                await deletePackageFromS3(packageName, version);
+                console.log(`Successfully deleted existing package ${packageName} version ${version} from S3.`);
 
-        //         const s3Key = await uploadPackageToS3(tempDownloadPath, packageName, version);
-        //         console.log(`Successfully uploaded ${packageName} version ${version} to S3 with key: ${s3Key}`);
-        //         continue;
-        //     } catch (error) {
-        //         console.error(`Error processing package ${packageName} version ${version}:`, error);
-        //         continue;
-        //     }
-        // }
+                const s3Key = await uploadPackageToS3(tempDownloadPath, packageName, version);
+                console.log(`Successfully uploaded ${packageName} version ${version} to S3 with key: ${s3Key}`);
+                continue;
+            } catch (error) {
+                console.error(`Error processing package ${packageName} version ${version}:`, error);
+                continue;
+            }
+        }
 
         // Evaluate the metrics
         const result = await netScore.evaluate();
@@ -375,88 +375,112 @@ async function processUrls(filePath: string[]): Promise<void> {
             continue;
         }
 
-        // // Upload package to S3
-        // try {
-        //     const s3Key = await uploadPackageToS3(tempDownloadPath, packageName, version);
-        // } catch (error) {
-        //     console.error(`Error processing package ${packageName} version ${version}:`, error);
-        //     continue;
-        // }
+        // Upload package to S3
+        try {
+            const s3Key = await uploadPackageToS3(tempDownloadPath, packageName, version);
+        } catch (error) {
+            console.error(`Error processing package ${packageName} version ${version}:`, error);
+            continue;
+        }
 
-        // // Generate S3 key
-        // const S3Key = getS3Key(packageName, version);
+        // Generate S3 key
+        const S3Key = getS3Key(packageName, version);
 
-        // // Insert package details into the database
-        // const insertPackageQuery = `
-        // INSERT INTO packages (
-        //     package_name, repo_link, is_internal, package_version, s3_link, net_score, final_metric, final_metric_latency
-        // )
-        // VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        // ON CONFLICT (repo_link) 
-        // DO UPDATE SET 
-        //     net_score = EXCLUDED.net_score,
-        //     final_metric_latency = EXCLUDED.final_metric_latency
-        // RETURNING package_id;
-        // `;
+        // Insert package details into the database
+        const insertPackageQuery = `
+        INSERT INTO packages (
+            package_name, repo_link, is_internal, package_version, s3_link, net_score, final_metric, final_metric_latency
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (repo_link) 
+        DO UPDATE SET 
+            net_score = EXCLUDED.net_score,
+            final_metric_latency = EXCLUDED.final_metric_latency
+        RETURNING package_id;
+        `;
 
-        // const packageValues = [
-        //     packageName,
-        //     netScore.NativeURL,
-        //     false,
-        //     version,
-        //     S3Key,
-        //     netScore.netScore,
-        //     null,
-        //     netScore.responseTime,
-        // ];
+        const packageValues = [
+            packageName,
+            netScore.NativeURL,
+            false,
+            version,
+            S3Key,
+            netScore.netScore,
+            null,
+            netScore.responseTime,
+        ];
 
-        // let packageId;
-        // try {
-        //     const packageRes = await pool.query(insertPackageQuery, packageValues);
-        //     packageId = packageRes.rows[0].package_id;
-        //     logger.info(`Package inserted with package_id: ${packageId}`);
-        // } catch (err) {
-        //     if (err instanceof Error) {
-        //         logger.error(`Error inserting package: ${err.message}`);
-        //     } else {
-        //         logger.error('Unexpected error inserting package');
-        //     }
-        //     continue;
-        // }
+        let packageId;
+        try {
+            const packageRes = await pool.query(insertPackageQuery, packageValues);
+            packageId = packageRes.rows[0].package_id;
+            logger.info(`Package inserted with package_id: ${packageId}`);
+        } catch (err) {
+            if (err instanceof Error) {
+                logger.error(`Error inserting package: ${err.message}`);
+            } else {
+                logger.error('Unexpected error inserting package');
+            }
+            continue;
+        }
 
-        // // Insert metrics into the database
-        // const insertMetricsQuery = `
-        // INSERT INTO metrics (package_id, ramp_up_time, bus_factor, correctness, license_compatibility, maintainability)
-        // VALUES ($1, $2, $3, $4, $5, $6)
-        // ON CONFLICT (package_id) 
-        // DO UPDATE SET 
-        //     ramp_up_time = EXCLUDED.ramp_up_time,
-        //     bus_factor = EXCLUDED.bus_factor,
-        //     correctness = EXCLUDED.correctness,
-        //     license_compatibility = EXCLUDED.license_compatibility,
-        //     maintainability = EXCLUDED.maintainability
-        // RETURNING metric_id;
-        // `;
+      // Insert metrics into the database
+        const insertMetricsQuery = `
+        INSERT INTO package_metrics (
+            package_id, rampup, busfactor, correctness, licensescore, responsivemaintainer, netscore, 
+            ramplatency, busfactorlatency, correctnesslatency, licensescorelatency, responsivemaintainerlatency, 
+            goodpinningpractice, goodpinningpracticelatency, pullrequest, pullrequestlatency
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        ON CONFLICT (package_id) 
+        DO UPDATE SET 
+            rampup = EXCLUDED.rampup,
+            busfactor = EXCLUDED.busfactor,
+            correctness = EXCLUDED.correctness,
+            licensescore = EXCLUDED.licensescore,
+            responsivemaintainer = EXCLUDED.responsivemaintainer,
+            netscore = EXCLUDED.netscore,
+            ramplatency = EXCLUDED.ramplatency,
+            busfactorlatency = EXCLUDED.busfactorlatency,
+            correctnesslatency = EXCLUDED.correctnesslatency,
+            licensescorelatency = EXCLUDED.licensescorelatency,
+            responsivemaintainerlatency = EXCLUDED.responsivemaintainerlatency,
+            goodpinningpractice = EXCLUDED.goodpinningpractice,
+            goodpinningpracticelatency = EXCLUDED.goodpinningpracticelatency,
+            pullrequest = EXCLUDED.pullrequest,
+            pullrequestlatency = EXCLUDED.pullrequestlatency
+        RETURNING metric_id;
+        `;
 
-        // const metricsValues = [
-        //     packageId,
-        //     netScore.rampUp.rampUp,
-        //     netScore.busFactor.busFactor,
-        //     netScore.correctness.correctness,
-        //     netScore.license.license,
-        //     netScore.maintainability.maintainability,
-        // ];
+        const metricsValues = [
+            packageId,
+            netScore.rampUp.rampUp,
+            netScore.busFactor.busFactor,
+            netScore.correctness.correctness,
+            netScore.license.license,
+            netScore.maintainability.maintainability,
+            netScore.netScore,
+            netScore.rampUp.responseTime,
+            netScore.busFactor.responseTime,
+            netScore.correctness.responseTime,
+            netScore.license.responseTime,
+            netScore.maintainability.responseTime,
+            netScore.DependencyPinning.dependencyPinning,
+            netScore.DependencyPinning.responseTime,
+            netScore.CodeReviewFraction.codeReviewFraction,
+            netScore.CodeReviewFraction.responseTime,
+        ];
 
-        // try {
-        //     const metricsRes = await pool.query(insertMetricsQuery, metricsValues);
-        //     logger.info(`Metrics inserted with metric_id: ${metricsRes.rows[0].metric_id}`);
-        // } catch (err) {
-        //     if (err instanceof Error) {
-        //         logger.error(`Error inserting metrics: ${err.message}`);
-        //     } else {
-        //         logger.error('Unexpected error inserting metrics');
-        //     }
-        // }
+        try {
+            const metricsRes = await pool.query(insertMetricsQuery, metricsValues);
+            logger.info(`Metrics inserted with metric_id: ${metricsRes.rows[0].metric_id}`);
+        } catch (err) {
+            if (err instanceof Error) {
+                logger.error(`Error inserting metrics: ${err.message}`);
+            } else {
+                logger.error('Unexpected error inserting metrics');
+            }
+        }
     }
 }
 
