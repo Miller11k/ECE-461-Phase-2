@@ -30,6 +30,9 @@ export const packageDB = `${process.env.METRICS_DB_SCHEMA}.${process.env.PACKAGE
 // Define the schema and table location for the package metrics database
 export const metricsDB = `${process.env.METRICS_DB_SCHEMA}.${process.env.METRICS_DB_TABLE}`;
 
+// Define the schema and table location for the package database
+export const dependenciesDB = `${process.env.METRICS_DB_SCHEMA}.${process.env.DEPENDENCIES_DB_TABLE}`;
+
 // Function to connect to both databases
 export const connectDatabases = async () => {
   try {
