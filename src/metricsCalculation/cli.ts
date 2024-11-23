@@ -22,6 +22,9 @@ import { NetScoreTest } from './netScore.js';
 
 import {getPackageVersion} from './getPackageVersion.js';
 // Additions for writing to the database
+import { generatePackageID } from '../API/helpers/packageIDHelper.js';
+
+
 import pkg from 'pg';
 import { S3Client, HeadObjectCommand, GetObjectCommand, PutObjectCommand, GetBucketLoggingCommand } from "@aws-sdk/client-s3";
 // import { console } from 'inspector';
@@ -338,7 +341,7 @@ async function processUrls(filePath: string[]): Promise<void> {
 
         const netScore = new NetScore(url[0], url[1]);
         const packageName = extractPackageName(netScore.NativeURL);
-        const tempDownloadPath = `/${packageName}/Package.zip`;
+       
 
         // Extract owner and repo from the GitHub URL
         const ownerRepo = new URL(netScore.NativeURL).pathname.split('/').filter(Boolean);
@@ -347,33 +350,34 @@ async function processUrls(filePath: string[]): Promise<void> {
 
         // Get the package version
         const version = await getPackageVersion(owner, repo);
+        const tempDownloadPath = `./${packageName}/${version}/Package.zip`;
 
         // Check if the package already exists in S3
-        const packageExists = await doesPackageExistInS3(packageName, version);
-        if (packageExists) {
-            console.log(`Skipping upload for ${packageName} version ${version} as it already exists in S3.`);
-            try {
-                await deletePackageFromS3(packageName, version);
-                console.log(`Successfully deleted existing package ${packageName} version ${version} from S3.`);
+        // const packageExists = await doesPackageExistInS3(packageName, version);
+        // if (packageExists) {
+        //     console.log(`Skipping upload for ${packageName} version ${version} as it already exists in S3.`);
+        //     try {
+        //         await deletePackageFromS3(packageName, version);
+        //         console.log(`Successfully deleted existing package ${packageName} version ${version} from S3.`);
 
-                const s3Key = await uploadPackageToS3(tempDownloadPath, packageName, version);
-                console.log(`Successfully uploaded ${packageName} version ${version} to S3 with key: ${s3Key}`);
-                continue;
-            } catch (error) {
-                console.error(`Error processing package ${packageName} version ${version}:`, error);
-                continue;
-            }
-        }
+        //         const s3Key = await uploadPackageToS3(tempDownloadPath, packageName, version);
+        //         console.log(`Successfully uploaded ${packageName} version ${version} to S3 with key: ${s3Key}`);
+        //         continue;
+        //     } catch (error) {
+        //         console.error(`Error processing package ${packageName} version ${version}:`, error);
+        //         continue;
+        //     }
+        // }
 
         // Evaluate the metrics
         const result = await netScore.evaluate();
         process.stdout.write(netScore.toString() + '\n');
         logger.debug(netScore.toString());
 
-        if (netScore.netScore < 0.5) {
-            console.log(`Skipping ${url[0]} due to low net score of ${netScore.netScore}.`);
-            continue;
-        }
+        // if (netScore.netScore < 0.5) {
+        //     console.log(`Skipping ${url[0]} due to low net score of ${netScore.netScore}.`);
+        //     continue;
+        // }
 
         // Upload package to S3
         try {
@@ -386,49 +390,60 @@ async function processUrls(filePath: string[]): Promise<void> {
         // Generate S3 key
         const S3Key = getS3Key(packageName, version);
 
+    
         // Insert package details into the database
         const insertPackageQuery = `
-        INSERT INTO packages (
-            package_name, repo_link, is_internal, package_version, s3_link, net_score, final_metric, final_metric_latency
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        ON CONFLICT (repo_link) 
-        DO UPDATE SET 
-            net_score = EXCLUDED.net_score,
-            final_metric_latency = EXCLUDED.final_metric_latency
-        RETURNING package_id;
+            INSERT INTO packages (
+                ID, 
+                Name, 
+                Version, 
+                Content, 
+                repo_link, 
+                is_internal, 
+                JSProgram, 
+                debloat
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ON CONFLICT (repo_link, Version) 
+            DO UPDATE SET 
+                Content = EXCLUDED.Content,
+                JSProgram = EXCLUDED.JSProgram,
+                debloat = EXCLUDED.debloat;
         `;
 
-        const packageValues = [
-            packageName,
-            netScore.NativeURL,
-            false,
-            version,
-            S3Key,
-            netScore.netScore,
-            null,
-            netScore.responseTime,
-        ];
-
-        let packageId;
+        const packageId = generatePackageID(packageName, version);
+        
         try {
-            const packageRes = await pool.query(insertPackageQuery, packageValues);
-            packageId = packageRes.rows[0].package_id;
-            logger.info(`Package inserted with package_id: ${packageId}`);
+    
+            
+        
+            const packageValues = [
+                packageId,         // Unique package ID
+                packageName,       // Name of the package
+                version,           // Version of the package
+                null,           // Base64-encoded content
+                netScore.NativeURL, // Repo link
+                false,             // is_internal flag  
+                null,         // JSProgram if provided
+                null            // Debloat flag
+            ];
+        
+            await pool.query(insertPackageQuery, packageValues);
+            console.log(`Package successfully inserted or updated with ID: ${packageId}`);
         } catch (err) {
             if (err instanceof Error) {
-                logger.error(`Error inserting package: ${err.message}`);
+                console.log(`Error inserting or updating package: ${err.message}`);
             } else {
-                logger.error('Unexpected error inserting package');
+                console.log('Unexpected error inserting or updating package');
             }
-            continue;
         }
+        
 
       // Insert metrics into the database
         const insertMetricsQuery = `
         INSERT INTO package_metrics (
             package_id, rampup, busfactor, correctness, licensescore, responsivemaintainer, netscore, 
-            ramplatency, busfactorlatency, correctnesslatency, licensescorelatency, responsivemaintainerlatency, 
+            rampuplatency, busfactorlatency, correctnesslatency, licensescorelatency, responsivemaintainerlatency, 
             goodpinningpractice, goodpinningpracticelatency, pullrequest, pullrequestlatency
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
@@ -440,7 +455,7 @@ async function processUrls(filePath: string[]): Promise<void> {
             licensescore = EXCLUDED.licensescore,
             responsivemaintainer = EXCLUDED.responsivemaintainer,
             netscore = EXCLUDED.netscore,
-            ramplatency = EXCLUDED.ramplatency,
+            rampuplatency = EXCLUDED.rampuplatency,
             busfactorlatency = EXCLUDED.busfactorlatency,
             correctnesslatency = EXCLUDED.correctnesslatency,
             licensescorelatency = EXCLUDED.licensescorelatency,
@@ -473,12 +488,12 @@ async function processUrls(filePath: string[]): Promise<void> {
 
         try {
             const metricsRes = await pool.query(insertMetricsQuery, metricsValues);
-            logger.info(`Metrics inserted with metric_id: ${metricsRes.rows[0].metric_id}`);
+            console.log(`Metrics inserted with metric_id: ${metricsRes.rows[0].metric_id}`);
         } catch (err) {
             if (err instanceof Error) {
-                logger.error(`Error inserting metrics: ${err.message}`);
+                console.log(`Error inserting metrics: ${err.message}`);
             } else {
-                logger.error('Unexpected error inserting metrics');
+                console.log('Unexpected error inserting metrics');
             }
         }
     }
