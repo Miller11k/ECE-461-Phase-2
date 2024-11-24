@@ -30,19 +30,19 @@ const { Pool } = pkg;
 
 // dotenv.config();
 
-const PERMANENT_BUCKET = process.env.S3_PERMANENT_BUCKET_NAME;
+const PERMANENT_BUCKET = process.env.S3_BUCKET_NAME;
 const REGION = process.env.AWS_REGION;
 
 // Validate required environment variables
-if (!PERMANENT_BUCKET || !REGION || !process.env.IAM_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+if (!PERMANENT_BUCKET || !REGION || !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
     if (!PERMANENT_BUCKET) {
         console.log("Missing environment variable: PERMANENT_BUCKET");
     }
     if (!REGION) {
         console.log("Missing environment variable: REGION");
     }
-    if (!process.env.IAM_ACCESS_KEY_ID) {
-        console.log("Missing environment variable: IAM_ACCESS_KEY_ID");
+    if (!process.env.AWS_ACCESS_KEY_ID) {
+        console.log("Missing environment variable: AWS_ACCESS_KEY_ID");
     }
     if (!process.env.AWS_SECRET_ACCESS_KEY) {
         console.log("Missing environment variable: AWS_SECRET_ACCESS_KEY");
@@ -67,7 +67,7 @@ const pool = new Pool({
 
 // Check environment variables
 if (!PERMANENT_BUCKET) {
-    console.error("Error: Bucket name not found in environment variables. Set S3_TEMP_BUCKET_NAME and S3_PERMANENT_BUCKET_NAME in your .env file.");
+    console.error("Error: Bucket name not found in environment variables. Set S3_TEMP_BUCKET_NAME and S3_BUCKET_NAME in your .env file.");
     process.exit(1);
 }
 
@@ -75,7 +75,7 @@ if (!PERMANENT_BUCKET) {
 const s3Client = new S3Client({
     region: REGION,
     credentials: {
-        accessKeyId: process.env.IAM_ACCESS_KEY_ID,
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
     }
 });

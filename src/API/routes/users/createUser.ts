@@ -24,13 +24,15 @@ router.post('/', async (req, res) => {
   // Generate a salt and hash the plaintext password
   const salt = createSalt();
   const cipher_password = generatePassword(plaintext_password, salt);
-  const x_authentication = generateAuthenticationToken(first_name, last_name, username, is_admin, salt);
+  // const x_authentication = await generateAuthenticationToken(first_name, last_name, username, is_admin, salt);
 
   try {
     // Insert the new user into the database
     await userDBClient.query(
       `INSERT INTO ${employeeDB} (username, password, salt, first_name, last_name, is_admin, "X-Authorization") VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [username, cipher_password, salt, first_name, last_name, is_admin, x_authentication]
+      [username, cipher_password, salt, first_name, last_name, is_admin]
+      // [username, cipher_password, salt, first_name, last_name, is_admin, x_authentication]
+
     );
 
     res.json({ success: true });  // Respond with success message

@@ -1,6 +1,7 @@
 import { Request, Response, Router } from 'express';
 import { employeeDB, userDBClient, packagesDBClient, packageDB, metricsDB, dependenciesDB } from '../../config/dbConfig.js';
 import { decodeAuthenticationToken } from '../../helpers/jwtHelper.js';
+import { deleteAllS3BucketContents } from '../../helpers/s3Helper.js';
 
 // Create a new router instance to define and group related routes
 const router = Router();
@@ -33,22 +34,8 @@ router.delete('/', async (req, res) => {
             ? authHeader.slice("bearer ".length).trim()
             : authHeader.trim();
 
-        // Verify user authentication using the provided token and retrieve the salt
-        const result = await userDBClient.query(
-            `SELECT "salt" FROM ${employeeDB} WHERE "X-Authorization" = $1`,
-            [x_authorization]
-        );
-
-        // Check if JWT is valid
-        if (result.rows.length === 0) {
-            res.status(403).json({ success: false, message: 'Authentication failed.' });
-            return;
-        }
-
-        // Extract the salt from the query result
-        const salt = result.rows[0].salt;
-
-        const decoded_jwt = decodeAuthenticationToken(x_authorization, salt);
+            
+        const decoded_jwt = await decodeAuthenticationToken(x_authorization);
 
         if(!decoded_jwt){
             res.status(403).json({ success: false, message: 'Authentication failed.' });
@@ -76,8 +63,20 @@ router.delete('/', async (req, res) => {
         // Clear the `package_metrics` table
         await packagesDBClient.query(`DELETE FROM ${metricsDB}`);
 
-        // Commit transaction
+        // Delete all contents in the S3 bucket
+        const s3BucketName = process.env.S3_BUCKET_NAME!;
+        const s3DeletionSuccess = await deleteAllS3BucketContents(s3BucketName);
+
+        if (!s3DeletionSuccess) {
+            // Rollback transaction if S3 clearing fails
+            await packagesDBClient.query('ROLLBACK');
+            res.status(500).json({ success: false, message: 'S3 bucket clearing failed. Changes rolled back.' });
+            return;
+        }
+
+        // Commit transaction if S3 clearing is successful
         await packagesDBClient.query('COMMIT');
+
 
         res.status(200).json({ success: true, message: 'Registry is reset.' });
         return;
