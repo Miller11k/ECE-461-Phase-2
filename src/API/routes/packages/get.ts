@@ -9,6 +9,7 @@ import { Request, Response, Router } from 'express';
 import { employeeDB, userDBClient, packagesDBClient, packageDB } from '../../config/dbConfig.js';
 import { fetchPackage, getS3Path } from '../../helpers/s3Helper.js';
 import { decodeAuthenticationToken, displayDecodedPayload } from '../../helpers/jwtHelper.js';
+import { validate as isValidUUID } from 'uuid';
 
 // Create a new router instance to define and group related routes
 const router = Router();
@@ -48,11 +49,9 @@ router.get('/:id', async (req, res) => {
             return;
         }
 
-        // Extract the package ID from the URL parameter
         const packageID = req.params.id;
-        if (!packageID) {
-            // Respond with 400 if the package ID is missing
-            res.status(400).json({ error: "Package ID is required but was not provided." });
+        if (!packageID || !isValidUUID(packageID)) {
+            res.status(400).json({ error: "Invalid package ID format." });
             return;
         }
 

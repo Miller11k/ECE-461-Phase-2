@@ -8,6 +8,7 @@ import { Router } from 'express';
 import { packagesDBClient, packageDB } from '../../config/dbConfig.js';
 import { fetchPackage } from '../../helpers/s3Helper.js';
 import { decodeAuthenticationToken } from '../../helpers/jwtHelper.js';
+import { validate as isValidUUID } from 'uuid';
 // Create a new router instance to define and group related routes
 const router = Router();
 /**
@@ -40,11 +41,9 @@ router.get('/:id', async (req, res) => {
             res.status(403).json({ success: false, message: 'Authentication failed.' });
             return;
         }
-        // Extract the package ID from the URL parameter
         const packageID = req.params.id;
-        if (!packageID) {
-            // Respond with 400 if the package ID is missing
-            res.status(400).json({ error: "Package ID is required but was not provided." });
+        if (!packageID || !isValidUUID(packageID)) {
+            res.status(400).json({ error: "Invalid package ID format." });
             return;
         }
         const packageResult = await packagesDBClient.query(`SELECT "Name", "Version", "Content" 
