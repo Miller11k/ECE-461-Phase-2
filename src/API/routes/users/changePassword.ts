@@ -1,7 +1,6 @@
 import { Request, Response, Router } from 'express';
 import { createSalt, generatePassword } from '../../helpers/passwordHelper.js';
 import { userDBClient, employeeDB } from '../../config/dbConfig.js';
-import { generateAuthenticationToken } from '../../helpers/jwtHelper.js';
 
 // Create a new router instance to define and group related routes
 const router = Router();
@@ -61,12 +60,12 @@ router.post('/', async (req, res) => {
     // Generate a new salt and hashed password
     const newSalt = createSalt();
     const newHashedPassword = generatePassword(newPassword, newSalt);
-    const new_x_authentication = generateAuthenticationToken(first_name, last_name, username, is_admin, newSalt);
 
     // Update the password in the database
     await userDBClient.query(
       `UPDATE ${employeeDB} SET password = $1, "X-Authorization" = $2, salt = $3 WHERE username = $4`,
-      [newHashedPassword, new_x_authentication, newSalt, username]
+      [newHashedPassword, newSalt, username]
+      // [newHashedPassword, new_x_authentication, newSalt, username]
     );
 
     res.json({ success: true, message: 'Password changed successfully' });  // Respond with success message

@@ -1,50 +1,56 @@
 import { Request, Response, Router } from 'express';
 import { userDBClient, employeeDB } from '../../config/dbConfig.js';
+import { decodeAuthenticationToken } from '../../helpers/jwtHelper.js';
 
 // Create a new router instance to define and group related routes
 const router = Router();
 
 /**
- * Endpoint to retrieve a user's details based on their username and token.
- * @route GET /get-user
- * @param req.query.username {string} Username of the user to retrieve details for.
- * @param req.query.token {string} Session token for authentication.
- * @returns {object} Success status with the user's first and last name if valid, or an error message.
+ * Endpoint to retrieve user details based on a token.
+ * @route POST /
+ * @param req.body.token {string} Authentication token.
+ * @returns {object} Success status with the user's details or an error message.
  */
-router.post('/', async (req, res) => {
-  const { username, token } = req.body;  // Get data from API request
+router.post('/', async (req: Request, res: Response) => {
+  let { token } = req.body; // Get the token from the API request body
 
-  // Check for complete request
-  if (!username || !token) {
-    res.status(400).json({ success: false, message: 'Username and token are required' }); // Return client error
+  // Check if the token is provided
+  if (!token) {
+    res.status(400).json({ success: false, message: 'Token is required' });
     return;
   }
 
+  // Remove "bearer " prefix if present (case-insensitive)
+  if (token.toLowerCase().startsWith('bearer ')) {
+    token = token.slice(7); // Remove "bearer " (length of 7)
+  }
+
   try {
-    // Query to check if the token exists for the given username
-    const result = await userDBClient.query(
-      `SELECT first_name, last_name, tokens FROM ${employeeDB} WHERE username = $1`,
-      [username]
-    );
+    // Decode and verify the authentication token
+    const decodedPayload = await decodeAuthenticationToken(token);
 
-    // If no user is found (based on username)
-    if (result.rows.length === 0) {
-      res.status(404).json({ success: false, message: 'User not found' });  // Return resource not found error
+    // If the token is invalid or corrupted
+    if (!decodedPayload) {
+      res.status(401).json({ success: false, message: 'Invalid token' });
       return;
     }
 
-    const { first_name, last_name, tokens } = result.rows[0]; // Get data from user
+    const { firstName, lastName, username, isAdmin } = decodedPayload;
 
-    // Check if the token is valid
-    if (!tokens || !tokens.includes(token)) {
-      res.status(401).json({ success: false, message: 'Invalid token' }); // Return authentication error
-      return;
-    }
-
-    // Return the user's first and last name
-    res.json({ success: true, first_name, last_name }); // Respond with success message
+    // Respond with the user's details
+    res.json({
+      success: true,
+      firstName,
+      lastName,
+      username,
+      isAdmin,
+    });
   } catch (error) {
-    res.status(500).json({ success: false, error: (error as Error).message });  // Return internal server error
+    // Handle unexpected errors
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+    });
   }
 });
 

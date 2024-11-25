@@ -1,84 +1,138 @@
-import jwt from 'jsonwebtoken';
+import { createHash } from 'crypto';
+import { getJWTSecret } from './secretsHelper.js';
 
 // Define a custom payload type
+/**
+ * Represents the payload of a JWT token.
+ */
 interface CustomJwtPayload {
+  /** The first name of the user. */
   firstName: string;
+
+  /** The last name of the user. */
   lastName: string;
+
+  /** The username of the user. */
   username: string;
+
+  /** Indicates whether the user has admin privileges. */
   isAdmin: boolean;
+
+  /** The issued-at timestamp of the token in seconds since epoch. */
+  iat: number;
 }
 
 /**
- * Generate a signed JWT token for X-Authentication.
+ * Generates a JWT with a signature.
  * 
- * @param firstName - The first name of the user.
- * @param lastName - The last name of the user.
- * @param username - The username of the user.
- * @param isAdmin - Whether the user is an admin.
- * @param secret - A server-side secret key for signing the token.
- * @returns A signed JWT token as a string.
+ * @param {string} firstName - The first name of the user.
+ * @param {string} lastName - The last name of the user.
+ * @param {string} username - The username of the user.
+ * @param {boolean} isAdmin - Indicates if the user is an admin.
+ * @returns {Promise<string>} A JWT token with a signature.
  */
-export function generateAuthenticationToken(
+export async function generateAuthenticationToken(
   firstName: string,
   lastName: string,
   username: string,
-  isAdmin: boolean,
-  secret: string
-): string {
+  isAdmin: boolean
+): Promise<string> {
   const payload: CustomJwtPayload = {
     firstName,
     lastName,
     username,
     isAdmin,
+    iat: Math.floor(Date.now() / 1000), // Current time in seconds
   };
 
-  // Sign and return the token with noTimestamp option
-  return jwt.sign(payload, secret, { algorithm: 'HS256', noTimestamp: true });
+  const header = {
+    alg: 'HS256', // Use a proper algorithm
+    typ: 'JWT',
+  };
+
+  const base64UrlEncode = (data: object): string =>
+    Buffer.from(JSON.stringify(data))
+      .toString('base64')
+      .replace(/=+$/, '') // Remove padding
+      .replace(/\+/g, '-') // Replace '+' with '-'
+      .replace(/\//g, '_'); // Replace '/' with '_'
+
+  const encodedHeader = base64UrlEncode(header);
+  const encodedPayload = base64UrlEncode(payload);
+
+  const secret = await getJWTSecret();
+  const pseudoSignature = createHash('sha256')
+    .update(`${encodedHeader}.${encodedPayload}.${secret}`) // Include the secret
+    .digest('base64')
+    .replace(/=+$/, '') // Remove padding
+    .replace(/\+/g, '-') // Replace '+' with '-'
+    .replace(/\//g, '_'); // Replace '/' with '_'
+
+  return `${encodedHeader}.${encodedPayload}.${pseudoSignature}`;
 }
 
 /**
- * Decode and verify a JWT token.
+ * Decodes a JWT and verifies its signature.
  * 
- * @param token - The JWT token to decode.
- * @param secret - The server-side secret key used to sign the token.
- * @returns The decoded payload if valid, or null if invalid.
+ * @param {string} token - The JWT token to decode.
+ * @returns {Promise<Omit<CustomJwtPayload, 'iat'> | null>} The decoded payload (excluding `iat`) if valid, otherwise `null`.
  */
-export function decodeAuthenticationToken(
-  token: string,
-  secret: string
-): CustomJwtPayload | null {
+export async function decodeAuthenticationToken(token: string): Promise<Omit<CustomJwtPayload, 'iat'> | null> {
   try {
-    // Decode and verify the token
-    const payload = jwt.verify(token, secret) as CustomJwtPayload;
-    return payload;
+    const [headerB64, payloadB64, signatureB64] = token.split('.');
+
+    if (!headerB64 || !payloadB64 || !signatureB64) {
+      throw new Error('Invalid JWT format');
+    }
+
+    const decodedPayload = JSON.parse(
+      Buffer.from(payloadB64, 'base64').toString('utf8')
+    ) as CustomJwtPayload;
+
+    const secret = await getJWTSecret();
+    const recomputedSignature = createHash('sha256')
+      .update(`${headerB64}.${payloadB64}.${secret}`) // Use the same secret logic
+      .digest('base64')
+      .replace(/=+$/, '') // Remove padding
+      .replace(/\+/g, '-') // Replace '+' with '-'
+      .replace(/\//g, '_'); // Replace '/' with '_'
+
+    if (recomputedSignature !== signatureB64) {
+      throw new Error('Invalid signature');
+    }
+
+    const { firstName, lastName, username, isAdmin } = decodedPayload;
+    return { firstName, lastName, username, isAdmin };
   } catch (error) {
-    // Safely handle unknown errors
-    if (error instanceof jwt.JsonWebTokenError) {
-      console.error('Invalid token:', error.message);
+    if (error instanceof Error) {
+      console.error('Token verification failed:', error.message);
     } else {
-      console.error('Unknown error:', error);
+      console.error('An unknown error occurred.');
     }
     return null;
   }
 }
 
-// Example usage:
-// const secret = "your_very_secure_secret_key";
-// const token = generateAuthenticationToken('John', 'Lockely', 'jLockely', false, secret);
-// console.log('Generated Token:', token);
 
-// const decoded = decodeAuthenticationToken("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmaXJzdE5hbWUiOiJNaWxsZXIiLCJsYXN0TmFtZSI6IktvZGlzaCIsInVzZXJuYW1lIjoibWtvZGlzaCIsImlzQWRtaW4iOnRydWV9.G9xdq6Z04DNGgmD7SNa_r5X78I8K1lHhYHJH6pCnTYI", "38cc7488ffdc60fe2c83740ba64d3fdc");
-// if (decoded) {
-//   console.log('\nDecoded Payload:', decoded);
-// }
-// console.log('\nIndividual Components:');
-// if (decoded) {
-//   // Destructure the payload into individual variables
-//   const { firstName, lastName, username, isAdmin } = decoded;
+/**
+ * Displays the contents of a decoded JWT payload.
+ * 
+ * @param {Omit<CustomJwtPayload, 'iat'> | null} decodedPayload - The decoded JWT payload, or `null` if the token is invalid.
+ * @returns {void} Nothing is returned; the payload details are printed to the console.
+ */
+export function displayDecodedPayload(
+  decodedPayload: Omit<CustomJwtPayload, 'iat'> | null
+): void {
+  if (!decodedPayload) {
+    console.log('Invalid or corrupted JWT token. Decoding failed.');
+    return;
+  }
 
-//   // Log the variables to verify
-//   console.log('First Name:', firstName);
-//   console.log('Last Name:', lastName);
-//   console.log('Username:', username);
-//   console.log('Is Admin:', isAdmin);
-// }
+  const { firstName, lastName, username, isAdmin } = decodedPayload;
+
+  console.log('Decoded JWT Payload:');
+  console.log(`  First Name: ${firstName}`);
+  console.log(`  Last Name: ${lastName}`);
+  console.log(`  Username: ${username}`);
+  console.log(`  Is Admin: ${isAdmin ? 'Yes' : 'No'}`);
+}
