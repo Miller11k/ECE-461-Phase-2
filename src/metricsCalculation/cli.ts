@@ -23,6 +23,7 @@ import { NetScoreTest } from './netScore.js';
 import {getPackageVersion} from './getPackageVersion.js';
 // Additions for writing to the database
 import { generatePackageID } from '../API/helpers/packageIDHelper.js';
+import { convertZipToBase64 } from '../API/helpers/zipHelper.js';
 
 
 import pkg from 'pg';
@@ -121,12 +122,14 @@ async function uploadPackageToS3(localPath: string, packageName: string, version
 
     console.log(`Uploading package to S3 at ${s3Key}...`);
 
+
     try {
-        const fileStream = fs.createReadStream(localPath);
+        const base64package = await convertZipToBase64(localPath);
         const command = new PutObjectCommand({
             Bucket: PERMANENT_BUCKET,
             Key: s3Key,
-            Body: fileStream
+            Body: base64package,
+            ContentEncoding:'base64'
         });
         await s3Client.send(command);
 
