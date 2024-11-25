@@ -24,6 +24,7 @@ import {getPackageVersion} from './getPackageVersion.js';
 // Additions for writing to the database
 import { generatePackageID } from '../API/helpers/packageIDHelper.js';
 import { convertZipToBase64 } from '../API/helpers/zipHelper.js';
+import { uploadUnzippedToS3 } from '../API/helpers/s3Helper.js';
 
 
 import pkg from 'pg';
@@ -119,19 +120,17 @@ async function deletePackageFromS3(packageName: string, version: string): Promis
  */
 async function uploadPackageToS3(localPath: string, packageName: string, version: string): Promise<string> {
     const s3Key = getS3Key(packageName, version);
+    const s3Bucket = PERMANENT_BUCKET || (() => {
+        throw new Error('PERMANENT_BUCKET environment variable is not set');
+    })();
+    
 
     console.log(`Uploading package to S3 at ${s3Key}...`);
 
 
     try {
         const base64package = await convertZipToBase64(localPath);
-        const command = new PutObjectCommand({
-            Bucket: PERMANENT_BUCKET,
-            Key: s3Key,
-            Body: base64package,
-            ContentEncoding:'base64'
-        });
-        await s3Client.send(command);
+        const upload = await uploadUnzippedToS3(base64package,s3Bucket,s3Key);
 
         console.log(`Package uploaded successfully to S3: ${s3Key}`);
         return s3Key; // Return the S3 key  to put in the storage
@@ -355,32 +354,32 @@ async function processUrls(filePath: string[]): Promise<void> {
         const version = await getPackageVersion(owner, repo);
         const tempDownloadPath = `./${packageName}/${version}/Package.zip`;
 
-        // Check if the package already exists in S3
-        // const packageExists = await doesPackageExistInS3(packageName, version);
-        // if (packageExists) {
-        //     console.log(`Skipping upload for ${packageName} version ${version} as it already exists in S3.`);
-        //     try {
-        //         await deletePackageFromS3(packageName, version);
-        //         console.log(`Successfully deleted existing package ${packageName} version ${version} from S3.`);
+        // // Check if the package already exists in S3
+        const packageExists = await doesPackageExistInS3(packageName, version);
+        if (packageExists) {
+            console.log(`Skipping upload for ${packageName} version ${version} as it already exists in S3.`);
+            try {
+                await deletePackageFromS3(packageName, version);
+                console.log(`Successfully deleted existing package ${packageName} version ${version} from S3.`);
 
-        //         const s3Key = await uploadPackageToS3(tempDownloadPath, packageName, version);
-        //         console.log(`Successfully uploaded ${packageName} version ${version} to S3 with key: ${s3Key}`);
-        //         continue;
-        //     } catch (error) {
-        //         console.error(`Error processing package ${packageName} version ${version}:`, error);
-        //         continue;
-        //     }
-        // }
+                const s3Key = await uploadPackageToS3(tempDownloadPath, packageName, version);
+                console.log(`Successfully uploaded ${packageName} version ${version} to S3 with key: ${s3Key}`);
+                continue;
+            } catch (error) {
+                console.error(`Error processing package ${packageName} version ${version}:`, error);
+                continue;
+            }
+        }
 
         // Evaluate the metrics
         const result = await netScore.evaluate();
         process.stdout.write(netScore.toString() + '\n');
         logger.debug(netScore.toString());
 
-        // if (netScore.netScore < 0.5) {
-        //     console.log(`Skipping ${url[0]} due to low net score of ${netScore.netScore}.`);
-        //     continue;
-        // }
+        if (netScore.netScore < 0.5) {
+            console.log(`Skipping ${url[0]} due to low net score of ${netScore.netScore}.`);
+            continue;
+        }
 
         // Upload package to S3
         try {
@@ -397,24 +396,27 @@ async function processUrls(filePath: string[]): Promise<void> {
         // Insert package details into the database
         const insertPackageQuery = `
             INSERT INTO packages (
-                ID, 
-                Name, 
-                Version, 
-                Content, 
-                repo_link, 
-                is_internal, 
-                JSProgram, 
-                debloat
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            ON CONFLICT (repo_link, Version) 
-            DO UPDATE SET 
-                Content = EXCLUDED.Content,
-                JSProgram = EXCLUDED.JSProgram,
-                debloat = EXCLUDED.debloat;
+            ID,
+            "Name",
+            "version",
+            Content,
+            repo_link,
+            is_internal,
+            JSProgram,
+            debloat
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (repo_link, Version)
+        DO UPDATE SET 
+            Content = EXCLUDED.Content,
+            JSProgram = EXCLUDED.JSProgram,
+            debloat = EXCLUDED.debloat;
+
         `;
 
         const packageId = generatePackageID(packageName, version);
+        const base64package = await convertZipToBase64(tempDownloadPath);
+
         
         try {
     
@@ -424,7 +426,7 @@ async function processUrls(filePath: string[]): Promise<void> {
                 packageId,         // Unique package ID
                 packageName,       // Name of the package
                 version,           // Version of the package
-                null,           // Base64-encoded content
+                base64package,           // Base64-encoded content
                 netScore.NativeURL, // Repo link
                 false,             // is_internal flag  
                 null,         // JSProgram if provided
