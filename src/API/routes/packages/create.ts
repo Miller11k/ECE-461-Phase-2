@@ -4,22 +4,17 @@ import { Request, Response, Router } from 'express';
 import { userDBClient, packagesDBClient, packageDB } from '../../config/dbConfig.js';
 import { verifyAuthenticationToken } from '../../helpers/jwtHelper.js';
 import { generatePackageID } from '../../helpers/packageIDHelper.js';
-import { saveBase64AsZip, extractPackageJsonFromZip, cloneAndZipRepo } from '../../helpers/zipHelper.js';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  saveBase64AsZip,
+  extractPackageJsonFromZip,
+  cloneAndZipRepo,
+} from '../../helpers/zipHelper.js';
+import { uploadUnzippedToS3 } from '../../helpers/s3Helper.js';
 import fs from 'fs';
 import semver from 'semver';
 
 // Create a new router instance to define and group related routes
 const router = Router();
-
-// Initialize the S3 client
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.IAM_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-  },
-});
 
 /**
  * POST /package - Upload or ingest a new package.
@@ -61,32 +56,33 @@ router.post('/', async (req: Request, res: Response) => {
 
     const username = decoded_jwt.username;
 
+    console.log('Authenticated username:', username);
+
     // Verify that the user exists in the database
+    console.log('Database connection details:', userDBClient);
     const result = await userDBClient.query(
-      `SELECT * FROM public.employee_logins WHERE username = $1`,
+      `SELECT * FROM public.users WHERE username = $1`,
       [username]
     );
+    console.log('User query result:', result.rows);
 
     if (result.rows.length === 0) {
       res.status(403).json({ success: false, message: 'User not found.' });
       return;
     }
 
-    // Proceed with the rest of the code
     console.log('User authenticated successfully');
 
-    // Validate the request body
-    const { metadata, data } = req.body;
+    // Validate the request body according to the OpenAPI spec
+    const { Content, URL, JSProgram, debloat, Name } = req.body;
 
-    if (!data) {
-      res.status(400).json({ error: "Request body must include 'data' object." });
+    if (!Content && !URL) {
+      res.status(400).json({ error: "Either 'Content' or 'URL' must be provided." });
       return;
     }
 
-    const { Content, URL, JSProgram, debloat, Name } = data;
-
-    if ((Content && URL) || (!Content && !URL)) {
-      res.status(400).json({ error: "Either 'Content' or 'URL' must be provided, not both." });
+    if (Content && URL) {
+      res.status(400).json({ error: "Only one of 'Content' or 'URL' should be provided, not both." });
       return;
     }
 
@@ -98,15 +94,14 @@ router.post('/', async (req: Request, res: Response) => {
     let packageName = '';
     let packageVersion = '';
     let packageID = '';
-    let s3Key = '';
+    let s3Link = '';
     let repoLink = '';
     let isInternal = false;
-    let uploadMethod = '';
+    let s3FolderKey = '';
 
     if (Content) {
       // Handle Content upload
       packageName = Name;
-      uploadMethod = 'Content';
       repoLink = 'ContentUpload'; // Since there's no repository link
       isInternal = true; // Assuming content uploads are internal
 
@@ -121,104 +116,92 @@ router.post('/', async (req: Request, res: Response) => {
         return;
       }
 
-      // For Content uploads, the version will start from '1.0.0'
-      packageVersion = '1.0.0';
+      packageVersion = packageJson.version || '1.0.0';
 
       // Generate package ID
       packageID = generatePackageID(packageName, packageVersion);
 
       // Check if the package already exists
-      const existingPackage = await packagesDBClient.query(
-        `SELECT * FROM ${packageDB} WHERE package_name = $1 AND package_version = $2`,
+      console.log('Checking for existing package with query:');
+      console.log(
+        `SELECT * FROM ${packageDB} WHERE "Name" = $1 AND "Version" = $2`,
         [packageName, packageVersion]
       );
+
+      const existingPackage = await packagesDBClient.query(
+        `SELECT * FROM ${packageDB} WHERE "Name" = $1 AND "Version" = $2`,
+        [packageName, packageVersion]
+      );
+      console.log('Existing package result:', existingPackage.rows);
+
       if (existingPackage.rows.length > 0) {
         res.status(409).json({ error: 'Package already exists' });
         return;
       }
 
-      // Upload to S3
-      s3Key = `${packageID}.zip`;
-      const fileStream = fs.createReadStream(tempZipPath);
-      await s3Client.send(
-        new PutObjectCommand({
-          Bucket: process.env.S3_PERMANENT_BUCKET_NAME,
-          Key: s3Key,
-          Body: fileStream,
-        })
-      );
+      // Upload unzipped content to S3
+      const s3BucketName = process.env.S3_PERMANENT_BUCKET_NAME || '';
+      s3FolderKey = `${packageID}/`;
+
+      const zipBase64 = fs.readFileSync(tempZipPath).toString('base64');
+
+      const uploadSuccess = await uploadUnzippedToS3(zipBase64, s3BucketName, s3FolderKey);
+
+      if (!uploadSuccess) {
+        res.status(500).json({ error: 'Failed to upload package to S3' });
+        return;
+      }
+
+      s3Link = `s3://${s3BucketName}/${s3FolderKey}`;
 
       // Clean up temp files
       fs.unlinkSync(tempZipPath);
-    } else if (URL) {
-      // Handle URL ingestion
-      uploadMethod = 'URL';
-      repoLink = URL; // Use the provided URL as the repository link
-      isInternal = false; // Assuming URL uploads are external
-
-      // Assume you have a helper function to clone and zip the repo
-      const tempRepoPath = `/tmp/repo-${Date.now()}`;
-      const tempZipPath = `/tmp/${Date.now()}.zip`;
-      await cloneAndZipRepo(URL, tempRepoPath, tempZipPath);
-
-      // Extract package.json
-      const packageJson = await extractPackageJsonFromZip(tempZipPath);
-      if (!packageJson) {
-        res.status(400).json({ error: 'Invalid repository content: package.json not found.' });
-        return;
-      }
-
-      packageName = packageJson.name;
-      packageVersion = packageJson.version || '1.0.0'; // Default to '1.0.0' if version not provided
-
-      if (!packageName) {
-        res.status(400).json({ error: 'Name not found in package.json' });
-        return;
-      }
-
-      // Generate package ID
-      packageID = generatePackageID(packageName, packageVersion);
-
-      // Check if the package already exists
-      const existingPackage = await packagesDBClient.query(
-        `SELECT * FROM ${packageDB} WHERE package_name = $1 AND package_version = $2`,
-        [packageName, packageVersion]
-      );
-      if (existingPackage.rows.length > 0) {
-        res.status(409).json({ error: 'Package already exists' });
-        return;
-      }
-
-      // Upload to S3
-      s3Key = `${packageID}.zip`;
-      const fileStream = fs.createReadStream(tempZipPath);
-      await s3Client.send(
-        new PutObjectCommand({
-          Bucket: process.env.S3_PERMANENT_BUCKET_NAME,
-          Key: s3Key,
-          Body: fileStream,
-        })
-      );
-
-      // Clean up temp files
-      fs.unlinkSync(tempZipPath);
-      // Remove temp repo folder
-      fs.rmSync(tempRepoPath, { recursive: true, force: true });
     }
+
+    // Log data before inserting into the database
+    console.log('Inserting package into database with values:');
+    console.log({
+      ID: packageID,
+      Name: packageName,
+      Version: packageVersion,
+      repo_link: repoLink,
+      is_internal: isInternal,
+      Content: s3Link,
+    });
 
     // Store package metadata in the database
     await packagesDBClient.query(
-      `INSERT INTO ${packageDB} (package_name, package_version, repo_link, is_internal, s3_link)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [packageName, packageVersion, repoLink, isInternal, s3Key]
+      `INSERT INTO ${packageDB} ("ID", "Name", "Version", "repo_link", "is_internal", "Content")
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [packageID, packageName, packageVersion, repoLink, isInternal, s3Link]
     );
 
+    console.log('Package inserted successfully.');
+
+    // Prepare response data
+    const responseData: any = {
+      metadata: {
+        Name: packageName,
+        Version: packageVersion,
+        ID: packageID,
+      },
+      data: {},
+    };
+
+    if (Content) {
+      responseData.data.Content = Content;
+    }
+
+    if (URL) {
+      responseData.data.URL = URL;
+    }
+
+    if (JSProgram) {
+      responseData.data.JSProgram = JSProgram;
+    }
+
     // Return success response
-    res.status(201).json({
-      package_name: packageName,
-      package_version: packageVersion,
-      package_id: packageID,
-    });
+    res.status(201).json(responseData);
     return;
   } catch (error) {
     console.error('Error in POST /package:', error);
