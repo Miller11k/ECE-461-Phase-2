@@ -11,7 +11,7 @@ import cors from 'cors';
 const corsConfig = cors({
   origin: '*',  // Allow requests from any origin
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed HTTP methods
-  allowedHeaders: ['Content-Type', 'Authorization'],  // Allowed request headers
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Authorization'],  // Allowed request headers
 });
 
 export default corsConfig;

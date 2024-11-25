@@ -1,6 +1,7 @@
 import { Router } from 'express';
-import { employeeDB, userDBClient, packagesDBClient, packageDB } from '../../config/dbConfig.js';
+import { packagesDBClient, packageDB } from '../../config/dbConfig.js';
 import semver from 'semver';
+import { decodeAuthenticationToken } from '../../helpers/jwtHelper.js';
 const router = Router();
 /**
  * POST /packages
@@ -15,19 +16,20 @@ router.post('/', async (req, res) => {
         // Extract pagination offset, default to 0 if not provided
         const offset = parseInt(req.query.offset) || 0;
         const max_responses = 10; // Limit responses to 10 (prevents attack vector)
-        // Validate the authorization header
+        // Extract and validate the X-Authorization header
         const authHeader = req.headers['x-authorization'];
         if (!authHeader || typeof authHeader !== 'string') {
-            res.status(403).json({ error: "Missing or invalid X-Authorization header" });
+            // Respond with 403 if the header is missing or invalid
+            res.status(403).json({ error: "Invalid or missing X-Authorization header" });
             return;
         }
-        // Extract the token from the header
+        // Extract the token from the header, removing the "Bearer " prefix if present
         const x_authorization = authHeader.toLowerCase().startsWith("bearer ")
             ? authHeader.slice("bearer ".length).trim()
             : authHeader.trim();
-        // Verify user authentication using the provided token
-        const result = await userDBClient.query(`SELECT * FROM ${employeeDB} WHERE "X-Authorization" = $1`, [x_authorization]);
-        if (result.rows.length === 0) {
+        const decoded_jwt = await decodeAuthenticationToken(x_authorization);
+        // If no user matches the token, respond with 403
+        if (!decoded_jwt) {
             res.status(403).json({ success: false, message: 'Authentication failed.' });
             return;
         }
