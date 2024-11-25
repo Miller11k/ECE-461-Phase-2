@@ -1,10 +1,9 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
     branches:
       - main
-      - 21-testing-code-coverage-and-integration
   pull_request:
     branches:
       - main
@@ -12,7 +11,6 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -20,7 +18,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "22.8.0" # Or whatever version you are using
+          node-version: "22.8.0"
 
       - name: Set up Python
         uses: actions/setup-python@v2
@@ -39,3 +37,35 @@ jobs:
       - name: Run checker script
         run: python3 checker/checker.py
 
+  deploy:
+    needs: validate  # Ensures `deploy` only runs if `validate` is successful
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && success()
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "22.8.0"
+
+      - name: Install AWS CLI
+        run: sudo apt-get install -y awscli
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile TypeScript
+        run: npm run build  # Assumes this command compiles to `dist/`
+
+      - name: Deploy to AWS Lambda
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          LAMBDA_FUNCTION_NAME: ${{ secrets.LAMBDA_FUNCTION_NAME }}
+        run: |
+          zip -r lambda-package.zip dist/
+          aws lambda update-function-code --function-name $LAMBDA_FUNCTION_NAME --zip-file fileb://lambda-package.zip

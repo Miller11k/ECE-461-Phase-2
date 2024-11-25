@@ -3,7 +3,6 @@ notes/
 
 # Node.js
 node_modules/
-dist/
 .env
 coverage/
 
