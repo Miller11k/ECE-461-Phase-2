@@ -72,13 +72,7 @@ router.get('/:id', async (req, res) => {
         // Extract package details with exact property names
         const { Name, Version, Content } = packageResult.rows[0];
 
-        // Get location of zip in S3 to return as string (base64 encoding)
-        const content_loc = getS3Path(Content);
-        if(!content_loc){
-            res.status(404).json({ error: `Package content not found for ID: ${packageID}` });
-            return;
-        }
-        const content_string = await fetchPackage(content_loc);
+        const content_string = await fetchPackage(Content);
         
         // Format the response JSON to include metadata and content
         const responseJson = {

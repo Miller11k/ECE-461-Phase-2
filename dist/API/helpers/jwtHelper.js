@@ -1,13 +1,13 @@
 import { createHash } from 'crypto';
 import { getJWTSecret } from './secretsHelper.js';
 /**
- * Generate a JWT with a pseudo-signature.
+ * Generates a JWT with a signature.
  *
- * @param firstName - The first name of the user.
- * @param lastName - The last name of the user.
- * @param username - The username of the user.
- * @param isAdmin - Whether the user is an admin.
- * @returns A JWT token with a pseudo-signature as a string.
+ * @param {string} firstName - The first name of the user.
+ * @param {string} lastName - The last name of the user.
+ * @param {string} username - The username of the user.
+ * @param {boolean} isAdmin - Indicates if the user is an admin.
+ * @returns {Promise<string>} A JWT token with a signature.
  */
 export async function generateAuthenticationToken(firstName, lastName, username, isAdmin) {
     const payload = {
@@ -38,10 +38,10 @@ export async function generateAuthenticationToken(firstName, lastName, username,
     return `${encodedHeader}.${encodedPayload}.${pseudoSignature}`;
 }
 /**
- * Decode a JWT and verify its pseudo-signature.
+ * Decodes a JWT and verifies its signature.
  *
- * @param token - The JWT token to decode.
- * @returns The decoded payload, or null if invalid.
+ * @param {string} token - The JWT token to decode.
+ * @returns {Promise<Omit<CustomJwtPayload, 'iat'> | null>} The decoded payload (excluding `iat`) if valid, otherwise `null`.
  */
 export async function decodeAuthenticationToken(token) {
     try {
@@ -74,9 +74,10 @@ export async function decodeAuthenticationToken(token) {
     }
 }
 /**
- * Helper function to display the contents of a decoded JWT payload.
+ * Displays the contents of a decoded JWT payload.
  *
- * @param decodedPayload - The decoded JWT payload, or null if invalid.
+ * @param {Omit<CustomJwtPayload, 'iat'> | null} decodedPayload - The decoded JWT payload, or `null` if the token is invalid.
+ * @returns {void} Nothing is returned; the payload details are printed to the console.
  */
 export function displayDecodedPayload(decodedPayload) {
     if (!decodedPayload) {

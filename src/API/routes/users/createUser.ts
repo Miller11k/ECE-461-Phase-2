@@ -29,7 +29,7 @@ router.post('/', async (req, res) => {
   try {
     // Insert the new user into the database
     await userDBClient.query(
-      `INSERT INTO ${employeeDB} (username, password, salt, first_name, last_name, is_admin, "X-Authorization") VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      `INSERT INTO ${employeeDB} (username, password, salt, first_name, last_name, is_admin) VALUES ($1, $2, $3, $4, $5, $6)`,
       [username, cipher_password, salt, first_name, last_name, is_admin]
       // [username, cipher_password, salt, first_name, last_name, is_admin, x_authentication]
 
