@@ -1,5 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import simpleGit from 'simple-git';
+import AdmZip from 'adm-zip';
 /**
  * Converts a zip file to a Base64 string.
  * @param {InputType} input - The input can either be a file path or a File object.
@@ -77,6 +79,65 @@ export function downloadBase64AsZip(base64, fileName) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+}
+/**
+ * Clones a Git repository and zips its content.
+ * @param {string} repoUrl - The URL of the Git repository.
+ * @param {string} clonePath - The local path where the repo will be cloned.
+ * @param {string} outputZipPath - The path where the output zip file will be saved.
+ * @returns {Promise<void>} - A promise that resolves when the operation is complete.
+ */
+export function cloneAndZipRepo(repoUrl, clonePath, outputZipPath) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            // Clone the repository
+            const git = simpleGit();
+            await git.clone(repoUrl, clonePath);
+            // Create a zip file from the cloned repository
+            const zip = new AdmZip();
+            zip.addLocalFolder(clonePath);
+            // Write the zip file
+            zip.writeZip(outputZipPath);
+            resolve();
+        }
+        catch (error) {
+            reject(error);
+        }
+        finally {
+            // Clean up the cloned repository
+            if (fs.existsSync(clonePath)) {
+                fs.rmSync(clonePath, { recursive: true, force: true });
+            }
+        }
+    });
+}
+/**
+ * Extracts package.json from a zip file and parses its content.
+ * @param {string} zipFilePath - The path to the zip file.
+ * @returns {Promise<any>} - A promise that resolves to the parsed JSON content of package.json.
+ */
+export function extractPackageJsonFromZip(zipFilePath) {
+    return new Promise((resolve, reject) => {
+        try {
+            const zip = new AdmZip(zipFilePath);
+            const zipEntries = zip.getEntries();
+            // Find package.json in the zip entries
+            const packageJsonEntry = zipEntries.find(entry => {
+                const entryName = entry.entryName.toLowerCase();
+                return entryName.endsWith('package.json') && !entryName.includes('__MACOSX');
+            });
+            if (!packageJsonEntry) {
+                reject(new Error('package.json not found in the zip file.'));
+                return;
+            }
+            const packageJsonContent = packageJsonEntry.getData().toString('utf8');
+            const packageJson = JSON.parse(packageJsonContent);
+            resolve(packageJson);
+        }
+        catch (error) {
+            reject(error);
+        }
+    });
 }
 // Example usage: Convert a zip file to Base64 and log the result
 // convertZipToBase64('/home/miller/mknotes/ECE/461/Project/Phase 2/lodash/4.17.21/Package.zip')

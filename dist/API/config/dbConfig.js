@@ -1,5 +1,7 @@
 import pkg from 'pg';
 const { Client } = pkg;
+import dotenv from 'dotenv';
+dotenv.config();
 // Create a PostgreSQL client for the user database
 const userDBClient = new Client({
     host: process.env.USERS_DB_HOST, // User database host
@@ -29,10 +31,11 @@ export const dependenciesDB = `${process.env.METRICS_DB_SCHEMA}.${process.env.DE
 // Function to connect to both databases
 export const connectDatabases = async () => {
     try {
-        await userDBClient.connect(); // Connect to user database
-        await packagesDBClient.connect(); // Connect to metrics database
+        await userDBClient.connect();
+        await packagesDBClient.connect();
     }
     catch (error) {
+        console.error("Database connection failed:", error);
         process.exit(1); // Exit the process if connection fails
     }
 };

@@ -1,5 +1,6 @@
 import { createHash } from 'crypto';
 import { getJWTSecret } from './secretsHelper.js';
+import jwt from 'jsonwebtoken';
 /**
  * Generates a JWT with a signature.
  *
@@ -90,4 +91,14 @@ export function displayDecodedPayload(decodedPayload) {
     console.log(`  Last Name: ${lastName}`);
     console.log(`  Username: ${username}`);
     console.log(`  Is Admin: ${isAdmin ? 'Yes' : 'No'}`);
+}
+export function verifyAuthenticationToken(token) {
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || '');
+        return decoded;
+    }
+    catch (error) {
+        console.error('Invalid JWT token:', error);
+        return null;
+    }
 }
