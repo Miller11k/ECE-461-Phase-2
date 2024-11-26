@@ -81,7 +81,6 @@ export async function decodeAuthenticationToken(token) {
  */
 export function displayDecodedPayload(decodedPayload) {
     if (!decodedPayload) {
-        console.log('Invalid or corrupted JWT token. Decoding failed.');
         return;
     }
     const { firstName, lastName, username, isAdmin } = decodedPayload;

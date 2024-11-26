@@ -88,28 +88,3 @@ export function downloadBase64AsZip(base64: string, fileName: string): void {
     link.click();
     document.body.removeChild(link);
 }
-
-
-// Example usage: Convert a zip file to Base64 and log the result
-// convertZipToBase64('/home/miller/mknotes/ECE/461/Project/Phase 2/lodash/4.17.21/Package.zip')
-//     .then((base64String) => console.log(base64String))
-//     .catch((err) => console.error(err));
-
-
-// Read a Base64 string from a file and save it as a zip file
-// const inputFilePath = '/home/miller/mknotes/ECE/461/Project/Phase 2/output.txt';
-// const outputFilePath = './output.zip';
-
-// try {
-//     // Read the Base64 string from the input file
-//     const base64String = fs.readFileSync(inputFilePath, 'utf-8').trim();
-
-//     // Save the Base64 string as a zip file
-//     saveBase64AsZip(base64String, outputFilePath);
-// } catch (error) {
-//     if (error instanceof Error) {
-//         console.error('Error:', error.message); // Safely log the error message
-//     } else {
-//         console.error('Unknown error occurred.');
-//     }
-// }
