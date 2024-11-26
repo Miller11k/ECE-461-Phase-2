@@ -124,7 +124,6 @@ export function displayDecodedPayload(
   decodedPayload: Omit<CustomJwtPayload, 'iat'> | null
 ): void {
   if (!decodedPayload) {
-    console.log('Invalid or corrupted JWT token. Decoding failed.');
     return;
   }
 
