@@ -13,7 +13,7 @@ app.use(express.json()); // Parse incoming JSON requests
 app.use('/', routes);
 
 // Initialize database connections
-connectDatabases();
+await connectDatabases();
 
 // Start the server
 const PORT = process.env.API_PORT || 4010;
