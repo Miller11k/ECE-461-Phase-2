@@ -46,7 +46,8 @@ router.get('/:id/cost', async (req: Request, res: Response) => {
 
         // Extract the salt from the query result
         const salt = result.rows[0].salt;
-        const decoded_jwt = decodeAuthenticationToken(x_authorization, salt);
+        // const decoded_jwt = decodeAuthenticationToken(x_authorization, salt);
+        const decoded_jwt = decodeAuthenticationToken(x_authorization);
 
         if (!decoded_jwt) {
             res.status(403).json({ success: false, message: 'Authentication failed.' });

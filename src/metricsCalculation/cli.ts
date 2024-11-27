@@ -24,7 +24,8 @@ import {getPackageVersion} from './getPackageVersion.js';
 // Additions for writing to the database
 import { generatePackageID } from '../API/helpers/packageIDHelper.js';
 import { convertZipToBase64 } from '../API/helpers/zipHelper.js';
-import { uploadUnzippedToS3 } from '../API/helpers/s3Helper.js';
+import { uploadUnzippedToS3, handleDuplicateAndUpload } from '../API/helpers/s3Helper.js';
+import { getJWTSecret } from '../API/helpers/secretsHelper.js';
 
 
 import pkg from 'pg';
@@ -37,9 +38,17 @@ const { Pool } = pkg;
 
 const PERMANENT_BUCKET = process.env.S3_BUCKET_NAME;
 const REGION = process.env.AWS_REGION;
+const packageDbTable = process.env.PACKAGE_DB_TABLE;
+const metricsDbTable = process.env.DEPENDENCIES_DB_TABLE;
 
 // Validate required environment variables
-if (!PERMANENT_BUCKET || !REGION || !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+if (!metricsDbTable || !packageDbTable || !PERMANENT_BUCKET || !REGION || !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+    if (!metricsDbTable) {
+        console.log("Missing environment variable: metricsDbTable");
+    } 
+    if (!packageDbTable) {
+        console.log("Missing environment variable: PackageDBtable");
+    }  
     if (!PERMANENT_BUCKET) {
         console.log("Missing environment variable: PERMANENT_BUCKET");
     }
@@ -59,15 +68,11 @@ if (!PERMANENT_BUCKET || !REGION || !process.env.AWS_ACCESS_KEY_ID || !process.e
 
 // now we need to add all of the database information in the .env file
 const pool = new Pool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: Number(process.env.DB_PORT), 
-    ssl: {
-        rejectUnauthorized: false,
-        ca: process.env.DB_SSL_CA
-    }
+    host: process.env.METRICS_DB_HOST,
+    user: process.env.METRICS_DB_USER,
+    password: process.env.METRICS_DB_PASSWORD,
+    database: process.env.METRICS_DB_NAME,
+    port: Number(process.env.METRICS_DB_PORT)
 });
 
 // Check environment variables
@@ -87,6 +92,10 @@ const s3Client = new S3Client({
 
 
 
+function generateS3Link(packageName: string, version: string): string {
+    const bucketName = PERMANENT_BUCKET; // Replace with your bucket name if needed
+    return `s3://${bucketName}/${encodeURIComponent(packageName)}/${encodeURIComponent(version)}/`;
+}
 
 function getS3Key(packageName: string, version: string): string {
     return `${packageName}/${version}/Package.zip`;
@@ -94,21 +103,21 @@ function getS3Key(packageName: string, version: string): string {
 
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 
-async function deletePackageFromS3(packageName: string, version: string): Promise<void> {
-    const s3Key = `${packageName}/${version}/Package.zip`; // Adjust key as needed
-    const command = new DeleteObjectCommand({
-        Bucket: PERMANENT_BUCKET,
-        Key: s3Key,
-    });
+// async function deletePackageFromS3(packageName: string, version: string): Promise<void> {
+//     const s3Key = `${packageName}/${version}/Package.zip`; // Adjust key as needed
+//     const command = new DeleteObjectCommand({
+//         Bucket: PERMANENT_BUCKET,
+//         Key: s3Key,
+//     });
 
-    try {
-        await s3Client.send(command);
-        console.log(`Deleted ${s3Key} from S3.`);
-    } catch (error) {
-        console.error(`Error deleting ${s3Key} from S3:`, error);
-        throw error;
-    }
-}
+//     try {
+//         await s3Client.send(command);
+//         console.log(`Deleted ${s3Key} from S3.`);
+//     } catch (error) {
+//         console.error(`Error deleting ${s3Key} from S3:`, error);
+//         throw error;
+//     }
+// }
 
 
 
@@ -140,33 +149,36 @@ async function uploadPackageToS3(localPath: string, packageName: string, version
     }
 }
 
+
+
+
 /**
  * Checks if a package already exists in the S3 bucket at the structured location.
  * @param {string} packageName - The name of the package.
  * @param {string} version - The version of the package.
  * @returns {Promise<boolean>} - Whether the package exists.
  */
-async function doesPackageExistInS3(packageName: string, version: string): Promise<boolean> {
-    const s3Key = getS3Key(packageName, version);
+// async function doesPackageExistInS3(packageName: string, version: string): Promise<boolean> {
+//     const s3Key = getS3Key(packageName, version);
 
-    try {
-        const command = new HeadObjectCommand({
-            Bucket: PERMANENT_BUCKET,
-            Key: s3Key
-        });
-        await s3Client.send(command);
+//     try {
+//         const command = new HeadObjectCommand({
+//             Bucket: PERMANENT_BUCKET,
+//             Key: s3Key
+//         });
+//         await s3Client.send(command);
 
-        console.log(`Package already exists in S3 at ${s3Key}.`);
-        return true;
-    } catch (error: any) {
-        if (error.name === 'NotFound') {
-            console.log(`Package does not exist in S3 at ${s3Key}.`);
-            return false;
-        }
-        console.error(`Error checking for package in S3:`, error);
-        throw error;
-    }
-}
+//         console.log(`Package already exists in S3 at ${s3Key}.`);
+//         return true;
+//     } catch (error: any) {
+//         if (error.name === 'NotFound') {
+//             console.log(`Package does not exist in S3 at ${s3Key}.`);
+//             return false;
+//         }
+//         console.error(`Error checking for package in S3:`, error);
+//         throw error;
+//     }
+// }
 
 
 
@@ -355,21 +367,31 @@ async function processUrls(filePath: string[]): Promise<void> {
         const tempDownloadPath = `./${packageName}/${version}/Package.zip`;
 
         // // Check if the package already exists in S3
-        const packageExists = await doesPackageExistInS3(packageName, version);
-        if (packageExists) {
-            console.log(`Skipping upload for ${packageName} version ${version} as it already exists in S3.`);
-            try {
-                await deletePackageFromS3(packageName, version);
-                console.log(`Successfully deleted existing package ${packageName} version ${version} from S3.`);
+        // const packageExists = await doesPackageExistInS3(packageName, version);
+        const base64package = await convertZipToBase64(tempDownloadPath);
+        const s3Key = getS3Key(packageName, version);
+        const s3Bucket = PERMANENT_BUCKET || (() => { throw new Error('PERMANENT_BUCKET environment variable is not set');
+        })();
+        const packageExists = await handleDuplicateAndUpload(packageName, version,base64package,s3Bucket,s3Key);
 
-                const s3Key = await uploadPackageToS3(tempDownloadPath, packageName, version);
-                console.log(`Successfully uploaded ${packageName} version ${version} to S3 with key: ${s3Key}`);
-                continue;
-            } catch (error) {
-                console.error(`Error processing package ${packageName} version ${version}:`, error);
-                continue;
-            }
+        if(packageExists){
+            console.log(`Skipping upload for ${packageName} version ${version} as it already exists in S3.`);
+            continue;
         }
+        // if (packageExists) {
+        //     console.log(`Skipping upload for ${packageName} version ${version} as it already exists in S3.`);
+        //     try {
+        //         await deletePackageFromS3(packageName, version);
+        //         console.log(`Successfully deleted existing package ${packageName} version ${version} from S3.`);
+
+        //         const s3Key = await uploadPackageToS3(tempDownloadPath, packageName, version);
+        //         console.log(`Successfully uploaded ${packageName} version ${version} to S3 with key: ${s3Key}`);
+        //         continue;
+        //     } catch (error) {
+        //         console.error(`Error processing package ${packageName} version ${version}:`, error);
+        //         continue;
+        //     }
+        // }
 
         // Evaluate the metrics
         const result = await netScore.evaluate();
@@ -390,32 +412,29 @@ async function processUrls(filePath: string[]): Promise<void> {
         }
 
         // Generate S3 key
-        const S3Key = getS3Key(packageName, version);
+        const S3link = generateS3Link(packageName, version);
 
     
         // Insert package details into the database
         const insertPackageQuery = `
-            INSERT INTO packages (
-            ID,
+            INSERT INTO ${packageDbTable} (
+            "ID",
             "Name",
-            "version",
-            Content,
+            "Version",
+            "Content",
             repo_link,
             is_internal,
-            JSProgram,
             debloat
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        ON CONFLICT (repo_link, Version)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT (repo_link, "Version")
         DO UPDATE SET 
-            Content = EXCLUDED.Content,
-            JSProgram = EXCLUDED.JSProgram,
+            "Content" = EXCLUDED."Content",
             debloat = EXCLUDED.debloat;
 
         `;
 
         const packageId = generatePackageID(packageName, version);
-        const base64package = await convertZipToBase64(tempDownloadPath);
 
         
         try {
@@ -426,11 +445,10 @@ async function processUrls(filePath: string[]): Promise<void> {
                 packageId,         // Unique package ID
                 packageName,       // Name of the package
                 version,           // Version of the package
-                base64package,           // Base64-encoded content
+                S3link,           // S3 bucket location
                 netScore.NativeURL, // Repo link
                 false,             // is_internal flag  
-                null,         // JSProgram if provided
-                null            // Debloat flag
+                null,         // debloat
             ];
         
             await pool.query(insertPackageQuery, packageValues);
@@ -446,7 +464,7 @@ async function processUrls(filePath: string[]): Promise<void> {
 
       // Insert metrics into the database
         const insertMetricsQuery = `
-        INSERT INTO package_metrics (
+        INSERT INTO ${metricsDbTable} (
             package_id, rampup, busfactor, correctness, licensescore, responsivemaintainer, netscore, 
             rampuplatency, busfactorlatency, correctnesslatency, licensescorelatency, responsivemaintainerlatency, 
             goodpinningpractice, goodpinningpracticelatency, pullrequest, pullrequestlatency

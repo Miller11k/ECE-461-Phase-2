@@ -1,7 +1,8 @@
 /* Handles `/package/{id}/rate` (GET) */
 import { Request, Response, Router } from 'express';
+import pg from 'pg'; // Default import for CommonJS module
+const { Pool } = pg; // Destructure the Pool from the default import
 
-import { Pool } from 'pg';
 import dotenv from 'dotenv';
 
 // Load environment variables from `.env` file

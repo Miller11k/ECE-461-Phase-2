@@ -1,5 +1,6 @@
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 
+
 // Set up AWS Secrets Manager client
 const secretsManagerClient = new SecretsManagerClient({
     region: process.env.AWS_REGION || "",
