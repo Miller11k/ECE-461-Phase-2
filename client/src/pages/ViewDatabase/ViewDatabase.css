@@ -1,0 +1,88 @@
+.packages-table {
+    width: 80%; /* Center the table and give it some width */
+    margin: 20px auto; /* Center it on the page */
+    border-collapse: collapse; /* Remove extra spacing between table cells */
+    background-color: #222; /* Match the dark theme */
+    color: white; /* White text for readability */
+    border-radius: 10px; /* Add rounded corners */
+    overflow: hidden; /* Ensure rounded corners apply to all parts, including borders */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5); /* Add a subtle shadow for depth */
+    table-layout: fixed; /* Ensure equal column widths */
+}
+
+.packages-table th, .packages-table td {
+    position: relative; /* Needed for pseudo-element positioning */
+    padding: 12px 15px; /* Add padding around the content */
+    text-align: left; /* Align text to the left */
+    word-wrap: break-word; /* Wrap long text to avoid overflow */
+}
+
+.packages-table th::before, .packages-table td::before {
+    content: ''; /* Create a pseudo-element */
+    position: absolute;
+    top: 5%; /* Adjust the top position for 95% height */
+    bottom: 5%; /* Adjust the bottom position for 95% height */
+    right: 0; /* Position the border on the right */
+    width: 1px; /* Set the border width */
+    background-color: white; /* Border color */
+}
+
+.packages-table th:last-child::before,
+.packages-table td:last-child::before {
+    display: none; /* Remove the pseudo-element from the last column */
+}
+.packages-table th:first-child, .packages-table td:first-child {
+    width: 40px; /* Set a fixed width for the number column */
+    text-align: center; /* Center align the numbers */
+    padding: 8px; /* Adjust padding for a balanced look */
+}
+
+
+.packages-table th {
+    background-color: #333; /* Darker header background for contrast */
+    font-weight: bold; /* Make header text bold */
+    border-bottom: 2px solid #555; /* Add a thick border below header */
+}
+
+.packages-table td {
+    border-bottom: 1px solid #555; /* Add light gray lines between rows */
+}
+
+.packages-table tr:hover {
+    background-color: #444; /* Highlight row on hover */
+}
+
+.packages-table tr:last-child td {
+    border-bottom: none; /* Remove border for the last row */
+}
+
+.pagination-button {
+    padding: 10px 15px;
+    font-size: 14px;
+    border: 1px solid #444; /* Match the table border color */
+    border-radius: 5px;
+    background-color: #333; /* Match the header background */
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s, border-color 0.3s;
+    margin: 10px 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5); /* Add slight shadow for depth */
+}
+
+.pagination-button:hover {
+    background-color: #444; /* Slightly lighter on hover */
+    border-color: #555; /* Match hover effect to the table style */
+    color: #ddd; /* Slightly lighter text on hover */
+}
+
+
+
+.view-package-link {
+    color: inherit; /* Match the current text color */
+    text-decoration: none; /* Remove underline */
+}
+
+.view-package-link:hover {
+    text-decoration: underline; /* Add an underline on hover for visual feedback */
+    color: #aaa; /* Slightly lighter color on hover */
+}
