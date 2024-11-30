@@ -98,7 +98,7 @@ function generateS3Link(packageName: string, version: string): string {
 }
 
 function getS3Key(packageName: string, version: string): string {
-    return `${packageName}/${version}/Package.zip`;
+    return `${packageName}/${version}/`;
 }
 
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
@@ -369,10 +369,9 @@ async function processUrls(filePath: string[]): Promise<void> {
         // // Check if the package already exists in S3
         // const packageExists = await doesPackageExistInS3(packageName, version);
         const base64package = await convertZipToBase64(tempDownloadPath);
-        const s3Key = getS3Key(packageName, version);
         const s3Bucket = PERMANENT_BUCKET || (() => { throw new Error('PERMANENT_BUCKET environment variable is not set');
         })();
-        const packageExists = await handleDuplicateAndUpload(packageName, version,base64package,s3Bucket,s3Key);
+        const packageExists = await handleDuplicateAndUpload(packageName, version,base64package,s3Bucket);
 
         if(packageExists){
             console.log(`Skipping upload for ${packageName} version ${version} as it already exists in S3.`);

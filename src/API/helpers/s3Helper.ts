@@ -438,7 +438,6 @@ export async function handleDuplicateAndUpload(
   version: string,
   zipFileBase64: string,
   bucketName: string,
-  folderKey: string
 ): Promise<boolean> {
   const s3 = new S3({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -446,7 +445,7 @@ export async function handleDuplicateAndUpload(
     region: process.env.AWS_REGION,
   });
 
-  const s3Key = `${folderKey}${packageName}/${version}/`;
+  const s3Key = `${packageName}/${version}/`;
 
   try {
     // Check if the package exists in S3
