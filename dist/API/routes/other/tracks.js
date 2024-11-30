@@ -26,7 +26,7 @@ router.get('/', async (req, res) => {
     // Return the JSON structure
     res.json({
         plannedTracks: [
-            "Access Control Track"
+            "Authentication Track"
         ]
     });
 });
