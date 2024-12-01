@@ -1,5 +1,6 @@
 import { createHash } from 'crypto';
 import { getJWTSecret } from './secretsHelper.js';
+import jwt from 'jsonwebtoken';
 
 // Define a custom payload type
 /**
@@ -134,4 +135,25 @@ export function displayDecodedPayload(
   console.log(`  Last Name: ${lastName}`);
   console.log(`  Username: ${username}`);
   console.log(`  Is Admin: ${isAdmin ? 'Yes' : 'No'}`);
+}
+
+export function verifyAuthenticationToken(token: string): any {
+  const secret = process.env.JWT_SECRET;
+
+  // Log the secret to confirm it's loaded (remove in production)
+  console.log('JWT_SECRET:', secret);
+
+  if (!secret) {
+    console.error('JWT_SECRET is not defined or missing in the environment.');
+    throw new Error('Server configuration error: JWT_SECRET is missing.');
+  }
+
+  try {
+    const decoded = jwt.verify(token, secret);
+    console.log('Decoded JWT:', decoded); // Debug decoded token
+    return decoded;
+  } catch (error) {
+    console.error('Invalid JWT token:', error);
+    return null;
+  }
 }
