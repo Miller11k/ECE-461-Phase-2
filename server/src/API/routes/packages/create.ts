@@ -28,8 +28,6 @@ const router = Router();
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    console.log('Received POST /package request');
-
     const authHeader = req.headers['x-authorization'];
     if (!authHeader || typeof authHeader !== 'string') {
       res.status(403).json({ error: 'Missing or invalid X-Authorization header' });
