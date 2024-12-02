@@ -31,11 +31,30 @@ Alfredo Barandearan
     - [Cleaning](#cleaning)
     - [Test Bench](#test-bench)
     - [Run with text file of URLs](#run-with-text-file-of-urls)
+    - [Run As Rest API Server](#run-as-rest-api-server)
     - [./test.sh](#testsh)
+  - [Main API Routes](#main-api-routes)
+      - [**List Packages**](#list-packages)
+      - [**Retrieve Package**](#retrieve-package)
+      - [**Upload or Ingest Package**](#upload-or-ingest-package)
+      - [**Update Package**](#update-package)
+      - [**Rate Package**](#rate-package)
+      - [**Cost of Package**](#cost-of-package)
+      - [**Search Packages by Regex**](#search-packages-by-regex)
+      - [**Reset Registry**](#reset-registry)
+      - [**Authenticate User**](#authenticate-user)
+      - [**Planned Tracks**](#planned-tracks)
+  - [Additional API Routes](#additional-api-routes)
+      - [**Change Password**](#change-password)
+      - [**Change Username**](#change-username)
+      - [**Clear Tokens**](#clear-tokens)
+      - [**Create User**](#create-user)
+      - [**Delete Token**](#delete-token)
+      - [**Get User**](#get-user)
+      - [**Login**](#login)
   - [Known Limitations](#known-limitations)
   - [Contribution and License Agreement](#contribution-and-license-agreement)
   - [License](#license-1)
-      - [Also seen in `LICENSE`](#also-seen-in-license)
 
 ## Description
 
@@ -175,6 +194,15 @@ https://github.com/cloudinary/cloudinary_npm
 https://www.npmjs.com/package/express
 ```
 
+### Run As Rest API Server
+
+To run the project in server mode, run this command:
+
+```bash 
+npm run start-server
+```
+
+
 ### ./test.sh
 
 This script is used to evaluate the effectiveness of our metric equations. To run it use the following command:
@@ -182,6 +210,258 @@ This script is used to evaluate the effectiveness of our metric equations. To ru
 ```bash
 ./test.sh
 ```
+
+## Main API Routes
+
+#### **List Packages**
+- **Endpoint:** `POST /packages`
+- **Description:** Retrieves a list of packages based on the query parameters.
+- **Request:**
+  - Headers: `X-Authorization` with an authentication token.
+  - Body: An array of `PackageQuery` objects containing:
+    - `Name`: Package name (or `*` for all packages).
+    - `Version`: Semantic version range.
+  - Optional Query Parameter: `offset` for pagination.
+- **Responses:**
+  - `200 OK`: List of packages with metadata.
+  - `400 Bad Request`: Malformed or missing query fields.
+  - `403 Forbidden`: Invalid or missing authentication token.
+  - `413 Payload Too Large`: Too many packages requested.
+
+---
+
+#### **Retrieve Package**
+- **Endpoint:** `GET /package/{id}`
+- **Description:** Fetches details of a specific package by ID.
+- **Request:**
+  - Headers: `X-Authorization` with an authentication token.
+  - Path Parameter: `id` (Package ID).
+- **Responses:**
+  - `200 OK`: Package metadata and data.
+  - `400 Bad Request`: Malformed or missing ID.
+  - `403 Forbidden`: Invalid or missing authentication token.
+  - `404 Not Found`: Package does not exist.
+
+---
+
+#### **Upload or Ingest Package**
+- **Endpoint:** `POST /package`
+- **Description:** Uploads or ingests a new package.
+- **Request:**
+  - Headers: `X-Authorization` with an authentication token.
+  - Body: `PackageData` object with either `Content` (Base64-encoded) or `URL` (repository URL).
+- **Responses:**
+  - `201 Created`: Package uploaded successfully.
+  - `400 Bad Request`: Malformed or conflicting fields in request.
+  - `403 Forbidden`: Invalid or missing authentication token.
+  - `409 Conflict`: Package already exists.
+  - `424 Failed Dependency`: Package disqualified due to a rating issue.
+
+---
+
+#### **Update Package**
+- **Endpoint:** `POST /package/{id}`
+- **Description:** Updates an existing package with a new version.
+- **Request:**
+  - Headers: `X-Authorization` with an authentication token.
+  - Path Parameter: `id` (Package ID).
+  - Body: `Package` object with new metadata and data.
+- **Responses:**
+  - `200 OK`: Package version updated.
+  - `400 Bad Request`: Malformed or missing fields.
+  - `403 Forbidden`: Invalid or missing authentication token.
+  - `404 Not Found`: Package does not exist.
+
+---
+
+#### **Rate Package**
+- **Endpoint:** `GET /package/{id}/rate`
+- **Description:** Retrieves the rating for a specific package.
+- **Request:**
+  - Headers: `X-Authorization` with an authentication token.
+  - Path Parameter: `id` (Package ID).
+- **Responses:**
+  - `200 OK`: Rating metrics for the package.
+  - `400 Bad Request`: Malformed or missing ID.
+  - `403 Forbidden`: Invalid or missing authentication token.
+  - `404 Not Found`: Package does not exist.
+  - `500 Internal Server Error`: Metric calculation issue.
+
+---
+
+#### **Cost of Package**
+- **Endpoint:** `GET /package/{id}/cost`
+- **Description:** Computes the cost of a package, optionally including its dependencies.
+- **Request:**
+  - Headers: `X-Authorization` with an authentication token.
+  - Path Parameter: `id` (Package ID).
+  - Query Parameter: `dependency` (boolean, default: `false`).
+- **Responses:**
+  - `200 OK`: Cost of the package and dependencies.
+  - `400 Bad Request`: Malformed or missing ID.
+  - `403 Forbidden`: Invalid or missing authentication token.
+  - `404 Not Found`: Package does not exist.
+  - `500 Internal Server Error`: Metric calculation issue.
+
+---
+
+#### **Search Packages by Regex**
+- **Endpoint:** `POST /package/byRegEx`
+- **Description:** Retrieves packages matching a regular expression.
+- **Request:**
+  - Headers: `X-Authorization` with an authentication token.
+  - Body: `PackageRegEx` object with a `RegEx` string.
+- **Responses:**
+  - `200 OK`: List of packages matching the regex.
+  - `400 Bad Request`: Malformed or invalid regex.
+  - `403 Forbidden`: Invalid or missing authentication token.
+  - `404 Not Found`: No packages match the regex.
+
+---
+
+#### **Reset Registry**
+- **Endpoint:** `DELETE /reset`
+- **Description:** Resets the package registry to its default state.
+- **Request:**
+  - Headers: `X-Authorization` with an authentication token.
+- **Responses:**
+  - `200 OK`: Registry successfully reset.
+  - `401 Unauthorized`: Insufficient permissions.
+  - `403 Forbidden`: Invalid or missing authentication token.
+
+---
+
+#### **Authenticate User**
+- **Endpoint:** `PUT /authenticate`
+- **Description:** Authenticates a user and retrieves an access token.
+- **Request:**
+  - Body: `AuthenticationRequest` with `User` (username, admin status) and `Secret` (password).
+- **Responses:**
+  - `200 OK`: Authentication token returned.
+  - `400 Bad Request`: Malformed or missing fields.
+  - `401 Unauthorized`: Invalid credentials.
+  - `501 Not Implemented`: Authentication not supported.
+
+---
+
+#### **Planned Tracks**
+- **Endpoint:** `GET /tracks`
+- **Description:** Retrieves the list of tracks planned for implementation.
+- **Responses:**
+  - `200 OK`: List of planned tracks.
+  - `500 Internal Server Error`: Failed to retrieve track information.
+
+## Additional API Routes
+
+#### **Change Password**
+- **Endpoint:** `POST /change-password`
+- **Description:** Allows a user to change their password.
+- **Request:**
+  - Headers: `X-Authorization` with an authentication token.
+  - Body:
+    - `newPassword` or `new_password`: The new password to set.
+- **Responses:**
+  - `200 OK`: Password changed successfully.
+  - `400 Bad Request`: Missing or blank new password.
+  - `403 Forbidden`: Invalid or missing authentication token.
+  - `404 Not Found`: User not found.
+  - `500 Internal Server Error`: An error occurred while processing the request.
+
+---
+
+#### **Change Username**
+- **Endpoint:** `POST /change-username`
+- **Description:** Allows a user to change their username.
+- **Request:**
+  - Headers: `X-Authorization` with an authentication token.
+  - Body:
+    - `newUsername` or `new_username`: The new username to set.
+- **Responses:**
+  - `200 OK`: Username changed successfully.
+  - `400 Bad Request`: Missing or unchanged username.
+  - `403 Forbidden`: Invalid or missing authentication token.
+  - `404 Not Found`: User not found or update failed.
+  - `500 Internal Server Error`: An error occurred while processing the request.
+
+---
+
+#### **Clear Tokens**
+- **Endpoint:** `POST /clear-tokens`
+- **Description:** Clears all session tokens for a user.
+- **Request:**
+  - Body:
+    - `username`: Username of the user.
+    - `token`: Session token for authentication.
+- **Responses:**
+  - `200 OK`: Tokens cleared successfully.
+  - `400 Bad Request`: Missing username or token.
+  - `401 Unauthorized`: Invalid token.
+  - `404 Not Found`: User not found.
+  - `500 Internal Server Error`: An error occurred while processing the request.
+
+---
+
+#### **Create User**
+- **Endpoint:** `POST /create-user`
+- **Description:** Creates a new user.
+- **Request:**
+  - Body:
+    - `first_name`: User's first name.
+    - `last_name`: User's last name.
+    - `username`: Username for the account.
+    - `plaintext_password`: Plaintext password for the account.
+    - `is_admin`: Boolean indicating if the user has admin rights.
+- **Responses:**
+  - `200 OK`: User created successfully.
+  - `400 Bad Request`: Username already in use.
+  - `500 Internal Server Error`: An error occurred while processing the request.
+
+---
+
+#### **Delete Token**
+- **Endpoint:** `DELETE /delete-token`
+- **Description:** Deletes a specific session token for a user.
+- **Request:**
+  - Body:
+    - `username`: The username of the user.
+    - `token`: The token to delete.
+- **Responses:**
+  - `200 OK`: Token deleted successfully.
+  - `400 Bad Request`: Missing username or token.
+  - `404 Not Found`: Token not found or user does not exist.
+  - `500 Internal Server Error`: An error occurred while processing the request.
+
+---
+
+#### **Get User**
+- **Endpoint:** `POST /get-user`
+- **Description:** Retrieves user details based on a token.
+- **Request:**
+  - Body:
+    - `token`: Authentication token.
+- **Responses:**
+  - `200 OK`: User details returned successfully.
+  - `400 Bad Request`: Missing token.
+  - `401 Unauthorized`: Invalid token.
+  - `500 Internal Server Error`: An error occurred while processing the request.
+
+---
+
+#### **Login**
+- **Endpoint:** `POST /login`
+- **Description:** Logs in a user.
+- **Request:**
+  - Body:
+    - `username`: Username for authentication.
+    - `password`: Password for authentication.
+- **Responses:**
+  - `200 OK`: Login successful with token.
+  - `400 Bad Request`: Missing username or password.
+  - `401 Unauthorized`: Invalid credentials.
+  - `500 Internal Server Error`: An error occurred while processing the request.
+
+---
+
 
 ## Known Limitations
 
@@ -194,13 +474,4 @@ to be distributed under the MIT license. You are also implicitly verifying that
 all code is your original work.
 
 ## License
-
-#### Also seen in `LICENSE`
-
-MIT License
-Copyright (c) 2024 Miller Kodish, Daniel Shkembi, Francisco Ramirez, Alfredo Barandearan
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+This project is licensed under the [MIT License](../LICENSE).
