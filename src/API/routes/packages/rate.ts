@@ -1,119 +1,4 @@
 // /* Handles `/package/{id}/rate` (GET) */
-// import { Request, Response, Router } from 'express';
-// import pg from 'pg'; // Default import for CommonJS module
-// const { Pool } = pg; // Destructure the Pool from the default import
-
-// import dotenv from 'dotenv';
-
-// // Load environment variables from `.env` file
-// dotenv.config();
-
-// export const pool = new Pool({
-//     host: process.env.METRICS_DB_HOST,
-//     user: process.env.METRICS_DB_USER,
-//     password: process.env.METRICS_DB_PASSWORD,
-//     database: process.env.METRICS_DB_NAME,
-//     port: Number(process.env.METRICS_DB_PORT),
-// });
-
-// // // Create a new router instance to define and group related routes
-// const router = Router();
-
-
-// // router.get('/:id/rate', async (req, res) => {
-// //     try {
-// //         // Extract the X-Authorization header
-// //         const authHeader = req.headers['x-authorization'];
-
-// //         // Validate the X-Authorization header
-// //         if (!authHeader || typeof authHeader !== 'string') {
-// //            res.status(403).json({ error: "Missing or invalid X-Authorization header" });
-// //            return;
-// //         }
-
-// //         // Extract the package ID from the route parameter
-// //         const packageId = req.params.id;
-
-// //         if (!packageId) {
-// //             res.status(400).json({ error: "Package ID is missing or invalid" });
-// //             return;
-// //         }
-
-// //         // Query the database for metrics
-// //         const tableName = process.env.METRICS_DB_TABLE;
-// //         const query = `SELECT * FROM ${tableName} WHERE package_id = $1`;
-// //         const { rows } = await pool.query(query, [packageId]);
-
-// //         if (rows.length === 0) {
-// //             res.status(404).json({ error: "Package metrics not found" });
-// //             return;
-// //         }
-
-// //         // Return the metrics
-// //         res.status(200).json(rows[0]);
-
-
-
-// //     } catch (error) {
-// //         res.status(500).json({ error: "Internal server error" });
-// //         return;
-// //     }
-
-// // });
-
-// // export default router;
-
-
-// router.get('/:id/rate', async (req, res) => {
-//     try {
-//         // Extract the X-Authorization header
-//         const authHeader = req.headers['x-authorization'];
-
-//         if (!authHeader || typeof authHeader !== 'string') {
-//             console.error("Missing or invalid X-Authorization header");
-//             res.status(403).json({ error: "Missing or invalid X-Authorization header" });
-//             return;
-//         }
-
-//         const packageId = req.params.id;
-
-//         if (!packageId) {
-//             console.error("Package ID is missing or invalid");
-//             res.status(400).json({ error: "Package ID is missing or invalid" });
-//             return;
-//         }
-
-//         // Ensure tableName is not undefined
-//         const tableName = process.env.METRICS_DB_TABLE;
-//         if (!tableName) {
-//             console.error("Environment variable METRICS_DB_TABLE is missing");
-//             res.status(500).json({ error: "Server misconfiguration" });
-//             return;
-//         }
-
-//         console.log(`Fetching metrics for package ID: ${packageId} from table: ${tableName}`);
-
-//         // Query the database for metrics
-//         const query = `SELECT * FROM ${tableName} WHERE package_id = $1`;
-//         const { rows } = await pool.query(query, [packageId]);
-
-//         if (rows.length === 0) {
-//             console.error(`No metrics found for package ID: ${packageId}`);
-//             res.status(404).json({ error: "Package metrics not found" });
-//             return;
-//         }
-
-//         // Return the metrics
-//         console.log(`Metrics found for package ID: ${packageId}`, rows[0]);
-//         res.status(200).json(rows[0]);
-
-//     } catch (error) {
-//         console.error("Error occurred while fetching package metrics:", error);
-//         res.status(500).json({ error: "Internal server error" });
-//     }
-// });
-
-// export default router;
 
 import { Request, Response, Router } from 'express';
 import pg from 'pg'; // PostgreSQL client
@@ -124,14 +9,17 @@ dotenv.config();
 
 const { Pool } = pg;
 
-// Initialize the PostgreSQL connection pool
 const pool = new Pool({
     host: process.env.METRICS_DB_HOST,
     user: process.env.METRICS_DB_USER,
     password: process.env.METRICS_DB_PASSWORD,
     database: process.env.METRICS_DB_NAME,
     port: Number(process.env.METRICS_DB_PORT),
+    ssl: {
+        rejectUnauthorized: false, 
+    },
 });
+
 
 // Validate required environment variables
 if (!process.env.METRICS_DB_HOST || 
@@ -155,6 +43,10 @@ router.get('/:id/rate', async (req: Request, res: Response) => {
     try {
         // Extract and validate the X-Authorization header
         const authHeader = req.headers['x-authorization'];
+        console.log(authHeader);
+        console.log("START");
+        console.log(process.env);
+        console.log(process.env.METRICS_DB_HOST?.trim());
         if (!authHeader || typeof authHeader !== 'string') {
             console.warn(`[WARN] Missing or invalid X-Authorization header`);
             res.status(403).json({ error: "Missing or invalid X-Authorization header" });
@@ -173,7 +65,22 @@ router.get('/:id/rate', async (req: Request, res: Response) => {
 
         // Query the database for metrics
         const tableName = process.env.METRICS_DB_TABLE;
-        const query = `SELECT * FROM ${tableName} WHERE package_id = $1`;
+
+        const columnQuery = `
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = $1
+            AND column_name NOT IN ('metric_id', 'package_id');
+        `;
+        const columnRes = await pool.query(columnQuery, [tableName]);
+        const columns = columnRes.rows.map(row => row.column_name).join(', ');
+
+        if (!columns) {
+            console.error('No valid columns found in the table.');
+            return;
+        }
+
+        const query = `SELECT ${columns} FROM ${tableName} WHERE package_id = $1`;
         const { rows } = await pool.query(query, [packageId]);
 
         // Check if the package metrics were found
@@ -183,9 +90,59 @@ router.get('/:id/rate', async (req: Request, res: Response) => {
             return;
         }
 
-        // Return the metrics as JSON
-        console.log(`[DEBUG] Metrics found for package ID ${packageId}:`, rows[0]);
-        res.status(200).json(rows[0]);
+        // Define the desired order of keys
+        const desiredOrder = [
+            "BusFactor",
+            "BusFactorLatency",
+            "Correctness",
+            "CorrectnessLatency",
+            "RampUp",
+            "RampUpLatency",
+            "ResponsiveMaintainer",
+            "ResponsiveMaintainerLatency",
+            "LicenseScore",
+            "LicenseScoreLatency",
+            "GoodPinningPractice",
+            "GoodPinningPracticeLatency",
+            "PullRequest",
+            "PullRequestLatency",
+            "NetScore",
+            "NetScoreLatency",
+        ];
+
+        // Map database column names to desired keys
+        const keyMapping: Record<string, string> = {
+            busfactor: "BusFactor",
+            busfactorlatency: "BusFactorLatency",
+            correctness: "Correctness",
+            correctnesslatency: "CorrectnessLatency",
+            rampup: "RampUp",
+            rampuplatency: "RampUpLatency",
+            responsivemaintainer: "ResponsiveMaintainer",
+            responsivemaintainerlatency: "ResponsiveMaintainerLatency",
+            licensescore: "LicenseScore",
+            licensescorelatency: "LicenseScoreLatency",
+            goodpinningpractice: "GoodPinningPractice",
+            goodpinningpracticelatency: "GoodPinningPracticeLatency",
+            pullrequest: "PullRequest",
+            pullrequestlatency: "PullRequestLatency",
+            netscore: "NetScore",
+            netscorelatency: "NetScoreLatency",
+        };
+
+        // Format the data in the desired order
+        const data = rows[0] as Record<string, string>;
+        const formattedData: Record<string, number> = {};
+        for (const key of desiredOrder) {
+            const dbKey = Object.keys(keyMapping).find(k => keyMapping[k] === key);
+            if (dbKey && data[dbKey] !== undefined) {
+                formattedData[key] = parseFloat(data[dbKey]);
+            }
+        }
+
+        // Return the metrics in the specified order
+        console.log(`[DEBUG] Metrics found for package ID ${packageId}:`, formattedData);
+        res.status(200).json(formattedData);
     } catch (error) {
         console.error(`[ERROR] Internal server error:`, error);
         res.status(500).json({ error: "Internal server error" });
