@@ -1,3 +1,12 @@
+/**
+ * Account component for managing user account details.
+ * Allows authenticated users to change their username or password.
+ *
+ * @component
+ * @param {Object} props - Component props.
+ * @param {Function} props.handleLogout - Function to handle user logout.
+ */
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -6,51 +15,65 @@ import Header from 'components/Header/Header';
 import styles from './Account.module.css';
 
 const Account = ({ handleLogout }) => {
-  const [newUsername, setNewUsername] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [selectedOption, setSelectedOption] = useState('');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [message, setMessage] = useState('');
-  const [userFullName, setUserFullName] = useState('');
-  const [currentUsername, setCurrentUsername] = useState('');
+  // State variables for handling user input and UI state
+  const [newUsername, setNewUsername] = useState(''); // New username entered by the user
+  const [newPassword, setNewPassword] = useState(''); // New password entered by the user
+  const [confirmPassword, setConfirmPassword] = useState(''); // Confirmation of the new password
+  const [selectedOption, setSelectedOption] = useState(''); // Selected option: 'username' or 'password'
+  const [isAuthenticated, setIsAuthenticated] = useState(false);  // Whether the user is authenticated
+  const [message, setMessage] = useState(''); // Message to display during authentication or errors
+  const [userFullName, setUserFullName] = useState(''); // Full name of the authenticated user
+  const [currentUsername, setCurrentUsername] = useState(''); // Current username of the user
 
+  // Environment variables for API configuration
   const apiPort = process.env.REACT_APP_API_PORT || 4010;
   const apiLink = process.env.REACT_APP_API_URL || 'http://localhost';
-  const token = localStorage.getItem('authToken');
-  const navigate = useNavigate();
+  const token = localStorage.getItem('authToken');  // Authentication token from local storage
+  const navigate = useNavigate(); // React Router hook for navigation
 
+  /**
+   * Effect hook for authenticating the user when the component mounts.
+   * Redirects to the login page if authentication fails.
+   */
   useEffect(() => {
     const authenticateUser = async () => {
       if (!token) {
+        // Notify the user that no token is found and redirect to login after a delay
         setMessage('No authentication token found. Redirecting to login...');
         setTimeout(() => navigate('/'), 2000);
         return;
       }
 
       try {
-        // Call get-user endpoint with token in the body
+        // Send a POST request to the 'get-user' endpoint with the token in the body
         const userResponse = await axios.post(`${apiLink}:${apiPort}/get-user`, { token });
 
         if (userResponse.data.success) {
+          // Extract user details from the response and update state
           const { firstName, lastName, username } = userResponse.data;
           setUserFullName(`${firstName || 'Unknown'} ${lastName || ''}`);
           setCurrentUsername(username || 'Unknown');
-          setIsAuthenticated(true);
+          setIsAuthenticated(true); // Mark the user as authenticated
         } else {
           setMessage('Invalid token. Redirecting to login...');
           setTimeout(() => navigate('/'), 2000);
         }
       } catch (err) {
+        // Handle invalid token scenario and redirect to login
         console.error('Authentication error:', err);
         setMessage('Error during authentication. Redirecting to login...');
         setTimeout(() => navigate('/'), 2000);
       }
     };
 
+    // Call the authenticateUser function when the effect is triggered
     authenticateUser();
-  }, [token, apiLink, apiPort, navigate]);
+  }, [token, apiLink, apiPort, navigate]);  // Dependencies for the useEffect hook
 
+  /**
+   * Handles saving changes to the user's account details.
+   * Validates input and makes API calls to update username or password.
+   */
   const handleSaveChanges = async () => {
     if (!token) {
       alert('Authentication token not found. Please log in again.');
@@ -79,7 +102,7 @@ const Account = ({ handleLogout }) => {
   
       if (response.data.success) {
         alert(`${selectedOption === 'username' ? 'Username' : 'Password'} updated successfully`);
-        handleLogout();
+        handleLogout(); // Log out the user after updating account details
         navigate('/');
       } else {
         alert(response.data.message || `Failed to update ${selectedOption}`);
