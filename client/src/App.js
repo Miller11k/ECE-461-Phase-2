@@ -1,5 +1,8 @@
+// Import necessary React and React Router libraries
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+
+// Import various page components
 import Login from './pages/Login/Login';
 import Dashboard from './pages/Dashboard/Dashboard';
 import Upload from './pages/UploadPackage/UploadPackage';
@@ -13,12 +16,15 @@ import Account from './pages/Account/Account';
 import ResetRegistry from './pages/ResetRegistry/resetRegistry';
 import CreateUser from './pages/CreateUser/createUser';
 
+// API configuration using environment variables or default values
 const apiPort = process.env.REACT_APP_API_PORT || 4010;
 const apiLink = process.env.REACT_APP_API_URL || 'http://localhost';
 
 const App = () => {
+  // State for storing the authentication token
   const [token, setToken] = useState(null);
 
+  // Load token from local storage when the component mounts
   useEffect(() => {
     const storedToken = localStorage.getItem('authToken');
     if (storedToken) {
@@ -26,17 +32,20 @@ const App = () => {
     }
   }, []);
 
+  // Handle login by saving the token and storing it in local storage
   const handleLogin = (newToken) => {
     setToken(newToken);
     localStorage.setItem('authToken', newToken);
   };
 
+  // Handle logout by clearing the token and removing it from local storage
   const handleLogout = () => {
     setToken(null);
     localStorage.removeItem('authToken');
   };
   
 
+  // Validate the token by making an API call
   const validateToken = async () => {
     try {
       const response = await fetch(`${apiLink}:${apiPort}/get-user`, {
@@ -59,6 +68,7 @@ const App = () => {
     }
   };
 
+  // Check if the user has admin privileges
   const isAdmin = async () => {
     try {
       const response = await fetch(`${apiLink}:${apiPort}/get-user`, {
@@ -81,6 +91,7 @@ const App = () => {
     }
   };
 
+  // Protected route component for authenticated users
   const ProtectedRoute = ({ children, validateToken }) => {
     const [isValid, setIsValid] = useState(null);
 
@@ -97,14 +108,17 @@ const App = () => {
       };
       validate();
     }, [validateToken]);
-
+    
+    // Show a loading indicator while validation is in progress
     if (isValid === null) {
       return <div>Loading...</div>;
     }
 
+    // Render children if valid, otherwise navigate to the login page
     return isValid ? children : <Navigate to="/" />;
   };
 
+  // Admin-protected route component for users with admin privileges
   const AdminProtectedRoute = ({ children, isAdmin }) => {
     const [isValidAdmin, setIsValidAdmin] = useState(null);
 
@@ -116,17 +130,21 @@ const App = () => {
       validate();
     }, [isAdmin]);
 
+    // Show a loading indicator while validation is in progress
     if (isValidAdmin === null) {
       return <div>Loading...</div>;
     }
 
+    // Render children if the user is an admin, otherwise redirect to the dashboard
     return isValidAdmin ? children : <Navigate to="/dashboard" />;
   };
 
   return (
     <Router>
       <Routes>
+        {/* Public route for login */}
         <Route path="/" element={<Login handleLogin={handleLogin} />} />
+        {/* Protected routes for authenticated users */}
         <Route
           path="/dashboard"
           element={
@@ -159,6 +177,7 @@ const App = () => {
             </ProtectedRoute>
           }
         >
+          {/* Nested routes for external and internal package uploads */}
           <Route path="external-package" element={<ExternalPackage />} />
           <Route path="internal-package" element={<InternalPackage />} />
         </Route>
@@ -170,6 +189,7 @@ const App = () => {
             </ProtectedRoute>
           }
         />
+        {/* Redirect /view-package to /view-database */}
         <Route
           path="/view-package"
           element={<Navigate to="/view-database" />}
@@ -182,6 +202,8 @@ const App = () => {
             </ProtectedRoute>
           }
         />
+
+        {/* Admin-protected routes */}
         <Route
           path="/admin-page"
           element={
@@ -211,4 +233,4 @@ const App = () => {
   );
 };
 
-export default App;
+export default App; // Export the App component as the default export
