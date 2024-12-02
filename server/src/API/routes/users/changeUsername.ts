@@ -1,3 +1,9 @@
+/**
+ * @module ChangeUsernameRoute
+ * Handles the `/change-username` endpoint for changing a user's username.
+ */
+
+
 import { Request, Response, Router } from 'express';
 import { userDBClient, employeeDB } from '../../config/dbConfig.js';
 import { decodeAuthenticationToken } from '../../helpers/jwtHelper.js';
@@ -5,16 +11,54 @@ import { decodeAuthenticationToken } from '../../helpers/jwtHelper.js';
 // Create a new router instance to define and group related routes
 const router = Router();
 
+
 /**
  * POST `/change-username` - Allows a user to change their username.
  * 
- * @name POST /change-username
- * @function
- * @memberof module:routes/user
+ * @route POST /change-username
+ * @group Users - Operations related to user management.
  * 
- * @param {Request} req - Express request object
- * @param {Response} res - Express response object
- * @returns {void} Sends a JSON response indicating success or error
+ * @param {Request} req - The HTTP request object.
+ * @param {string} req.headers['x-authorization'] - The token for authentication.
+ * @param {string} req.body.newUsername - The new username to set.
+ * @param {string} req.body.new_username - The new username to set (alternative key).
+ * 
+ * @param {Response} res - The HTTP response object.
+ * 
+ * @returns {Object} A JSON response:
+ * - `success: true` and a success message if the username is updated.
+ * - `success: false` and an error message if the operation fails.
+ * 
+ * @example
+ * // Request headers:
+ * {
+ *   "x-authorization": "Bearer <JWT>"
+ * }
+ * 
+ * // Request body:
+ * {
+ *   "newUsername": "new_user"
+ * }
+ * 
+ * // Successful response:
+ * {
+ *   "success": true,
+ *   "message": "Username updated successfully"
+ * }
+ * 
+ * @example
+ * // Error response (unchanged username):
+ * {
+ *   "success": false,
+ *   "message": "Invalid or unchanged username"
+ * }
+ * 
+ * @example
+ * // Error response (username already in use):
+ * {
+ *   "success": false,
+ *   "message": "Username already in use"
+ * }
  */
 router.post('/', async (req, res) => {
 

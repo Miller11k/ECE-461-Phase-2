@@ -1,30 +1,33 @@
+/**
+ * @module JWTUtils
+ * This module provides utility functions to generate, decode, and display JSON Web Tokens (JWTs).
+ */
+
 import { createHash } from 'crypto';
 import { getJWTSecret } from './secretsHelper.js';
 
-// Define a custom payload type
 /**
  * Represents the payload of a JWT token.
+ * @typedef {Object} CustomJwtPayload
+ * @property {string} firstName - The first name of the user.
+ * @property {string} lastName - The last name of the user.
+ * @property {string} username - The username of the user.
+ * @property {boolean} isAdmin - Indicates whether the user has admin privileges.
+ * @property {number} iat - The issued-at timestamp of the token in seconds since epoch.
  */
 interface CustomJwtPayload {
-  /** The first name of the user. */
   firstName: string;
-
-  /** The last name of the user. */
   lastName: string;
-
-  /** The username of the user. */
   username: string;
-
-  /** Indicates whether the user has admin privileges. */
   isAdmin: boolean;
-
-  /** The issued-at timestamp of the token in seconds since epoch. */
   iat: number;
 }
 
 /**
  * Generates a JWT with a signature.
  * 
+ * @async
+ * @function generateAuthenticationToken
  * @param {string} firstName - The first name of the user.
  * @param {string} lastName - The last name of the user.
  * @param {string} username - The username of the user.
@@ -46,7 +49,7 @@ export async function generateAuthenticationToken(
   };
 
   const header = {
-    alg: 'HS256', // Use a proper algorithm
+    alg: 'HS256', // Algorithm for signing
     typ: 'JWT',
   };
 
@@ -74,6 +77,8 @@ export async function generateAuthenticationToken(
 /**
  * Decodes a JWT and verifies its signature.
  * 
+ * @async
+ * @function decodeAuthenticationToken
  * @param {string} token - The JWT token to decode.
  * @returns {Promise<Omit<CustomJwtPayload, 'iat'> | null>} The decoded payload (excluding `iat`) if valid, otherwise `null`.
  */
@@ -117,6 +122,7 @@ export async function decodeAuthenticationToken(token: string): Promise<Omit<Cus
 /**
  * Displays the contents of a decoded JWT payload.
  * 
+ * @function displayDecodedPayload
  * @param {Omit<CustomJwtPayload, 'iat'> | null} decodedPayload - The decoded JWT payload, or `null` if the token is invalid.
  * @returns {void} Nothing is returned; the payload details are printed to the console.
  */

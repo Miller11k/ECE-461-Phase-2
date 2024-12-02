@@ -1,9 +1,27 @@
+/**
+ * @module SessionTokenGenerator
+ * Provides a utility function for generating secure session tokens.
+ */
+
 import * as crypto from 'crypto';
 import * as os from 'os';
 
 /**
- * Generates a session token based on date/time, device name, and cryptographic randomness.
- * @returns {string} The generated session token.
+ * Generates a session token based on the current date/time, device name, and cryptographic randomness.
+ * 
+ * The session token is created by combining:
+ * - The current timestamp (in milliseconds since epoch).
+ * - The device hostname (or "unknown" if unavailable).
+ * - A cryptographically secure random 16-byte string.
+ * 
+ * The combined string is then hashed using the SHA-256 algorithm to produce the session token.
+ * 
+ * @function generateSessionToken
+ * @returns {string} The generated session token as a 64-character hexadecimal string.
+ * 
+ * @example
+ * const sessionToken = generateSessionToken();
+ * console.log("Generated Session Token:", sessionToken);
  */
 export function generateSessionToken(): string {
     // Get the current timestamp

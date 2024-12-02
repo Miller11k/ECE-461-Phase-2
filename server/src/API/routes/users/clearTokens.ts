@@ -1,3 +1,9 @@
+/**
+ * @module ClearTokensRoute
+ * Handles the `/clear-tokens` endpoint for clearing all session tokens for a user.
+ */
+
+
 import { Request, Response, Router } from 'express';
 import { userDBClient, employeeDB } from '../../config/dbConfig.js';
 
@@ -5,11 +11,47 @@ import { userDBClient, employeeDB } from '../../config/dbConfig.js';
 const router = Router();
 
 /**
- * Endpoint to clear all session tokens for a user.
+ * POST `/clear-tokens` - Clears all session tokens for a specific user.
+ * 
  * @route POST /clear-tokens
- * @param req.body.username {string} Username of the user whose tokens will be cleared.
- * @param req.body.token {string} Session token for authentication.
- * @returns {object} Success status if tokens are cleared, or an error message.
+ * @group Users - Operations related to user management.
+ * 
+ * @param {Request} req - The HTTP request object.
+ * @param {string} req.body.username - The username of the user whose tokens will be cleared.
+ * @param {string} req.body.token - The session token for authentication.
+ * 
+ * @param {Response} res - The HTTP response object.
+ * 
+ * @returns {Object} A JSON response:
+ * - `success: true` and a success message if the tokens are cleared.
+ * - `success: false` and an error message if the operation fails.
+ * 
+ * @example
+ * // Request body:
+ * {
+ *   "username": "johndoe",
+ *   "token": "valid-session-token"
+ * }
+ * 
+ * // Successful response:
+ * {
+ *   "success": true,
+ *   "message": "Tokens cleared successfully"
+ * }
+ * 
+ * @example
+ * // Error response (user not found):
+ * {
+ *   "success": false,
+ *   "message": "User not found"
+ * }
+ * 
+ * @example
+ * // Error response (invalid token):
+ * {
+ *   "success": false,
+ *   "message": "Invalid token"
+ * }
  */
 router.post('/', async (req, res) => {
   const { username, token } = req.body; // Get data from API request
