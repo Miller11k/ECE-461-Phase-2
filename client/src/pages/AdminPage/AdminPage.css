@@ -1,0 +1,94 @@
+/* AdminPage.css */
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background-color: #1e1e1e;
+  color: #ffffff;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.page-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.content {
+  flex: 1;
+  text-align: center;
+  padding-top: 80px;
+}
+
+/* AdminPage.css */
+
+.options-container {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 50px;
+}
+
+.option-box {
+  width: 250px;
+  height: 150px;
+  margin: 20px;
+  background-color: #7b7b7b; /* Match the gray background */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: #333; /* Match text color */
+  border: 2px solid #ccc; /* Match border style */
+  border-radius: 8px; /* Keep the rounded corners consistent */
+  font-size: 1rem;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Explicitly set font-family */
+  font-weight: normal;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.3s; /* Smooth transitions */
+}
+
+.option-box:hover {
+  background-color: #e0e0e0; /* Match hover background */
+  transform: translateY(-5px); /* Match hover effect */
+}
+
+
+/* Updated Button Style */
+.admin-option {
+  width: 250px;
+  height: 150px;
+  margin: 20px;
+  background-color: #7b7b7b; /* Match the gray background */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: #333; /* Match text color */
+  border: 2px solid #ccc; /* Match border style */
+  border-radius: 8px; /* Keep the rounded corners consistent */
+  font-size: 1rem;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Explicitly set font-family */
+  font-weight: normal; /* Ensure consistency with dashboard buttons */
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.3s; /* Smooth transitions */
+}
+
+button {
+  all: unset; /* Remove default styles */
+  font-family: inherit; /* Inherit font-family from parent or defined styles */
+}
+
+
+.admin-option:hover {
+  background-color: #e0e0e0; /* Match hover background */
+  transform: translateY(-5px); /* Match hover effect */
+}
+
+.error-message {
+  color: red;
+  font-size: 1.1rem;
+}

@@ -1,0 +1,136 @@
+/* Account.module.css */
+.accountContainer {
+  max-width: 450px;
+  margin: 10% auto;
+  padding: 30px;
+  background-color: #2e2e2e;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+  color: #ffffff;
+  text-align: left;
+}
+
+.pageContainer {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.mainContent {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 1; /* This allows the mainContent to take the remaining space between Header and Footer */
+}
+
+.accountContainer {
+  max-width: 450px;
+  margin: 10% auto;
+  padding: 30px;
+  background-color: #2e2e2e;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+  color: #ffffff;
+  text-align: center; /* Change to center */
+}
+
+
+.title {
+  font-size: 26px;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.options {
+  display: flex;
+  justify-content: center; /* Center align buttons */
+  gap: 20px; /* Add spacing between buttons */
+  margin: 20px 0;
+}
+
+.optionButton {
+  width: auto; /* Remove the forced width to allow flexible button sizing */
+  padding: 10px 20px; /* Adjust padding for better appearance */
+  background-color: #2e2e2e;
+  color: #ffffff;
+  border: 1px solid #444;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  transition: background-color 0.3s, transform 0.3s;
+  box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.optionButton:hover {
+  background-color: #1e293b;
+  transform: translateY(-2px);
+}
+
+.optionButton:active {
+  background-color: #16202d;
+  transform: translateY(0);
+}
+
+
+.selected {
+  background-color: #1a466c;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+}
+
+.label {
+  font-size: 0.95em;
+  margin-bottom: 8px;
+  color: #a9a9a9;
+}
+
+.input {
+  padding: 12px;
+  border: 1px solid #555;
+  border-radius: 6px;
+  background-color: #444;
+  color: #ffffff;
+  font-size: 1em;
+  transition: background-color 0.3s, border 0.3s;
+}
+
+.input::placeholder {
+  color: #cccccc;
+}
+
+.input:focus {
+  background-color: #555;
+  border-color: #888;
+  outline: none;
+}
+
+.saveButton {
+  width: 80%; /* Align with login page button size */
+  padding: 10px;
+  background-color: #2e2e2e;
+  color: #ffffff;
+  border: 1px solid #444;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  transition: background-color 0.3s, transform 0.3s;
+  box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.25);
+  margin: 20px auto; /* Center the button and add spacing */
+}
+
+.saveButton:hover {
+  background-color: #1e293b;
+}
+
+.saveButton:active {
+  background-color: #16202d;
+}

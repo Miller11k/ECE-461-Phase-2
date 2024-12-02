@@ -1,206 +1,184 @@
+
 # ECE 461 Software Engineering Project Phase 2
 
-Created by:
-Miller Kodish
-Daniel Shkembi
-Francisco Ramirez
-Alfredo Barandearan
-
-## Table of contents
-
+## Table of Contents
 - [ECE 461 Software Engineering Project Phase 2](#ece-461-software-engineering-project-phase-2)
-  - [Table of contents](#table-of-contents)
+  - [Table of Contents](#table-of-contents)
   - [Description](#description)
-    - [Purpose](#purpose)
-    - [ACME Module Evaluator CLI](#acme-module-evaluator-cli)
-  - [File Documentation](#file-documentation)
-    - [Metrics](#metrics)
-    - [Maintainability](#maintainability)
-    - [RampUp](#rampup)
-    - [Correctness](#correctness)
-    - [BusFactor](#busfactor)
-    - [Responsiveness](#responsiveness)
-    - [License](#license)
-    - [NetScore](#netscore)
-    - [testUtils](#testutils)
-  - [Install](#install)
-  - [Usage](#usage)
-    - [NOTE for WSL users:](#note-for-wsl-users)
-    - [Initial Setup](#initial-setup)
+  - [Client Overview](#client-overview)
+    - [File Structure](#file-structure)
+    - [Features](#features)
+  - [Server Overview](#server-overview)
+    - [File Structure](#file-structure-1)
+    - [API Routes](#api-routes)
+      - [**Users**:](#users)
+      - [**Packages**:](#packages)
+      - [**Other**:](#other)
+    - [Metrics Calculation](#metrics-calculation)
+  - [Setup and Installation](#setup-and-installation)
+    - [Client Setup](#client-setup)
+    - [Server Setup](#server-setup)
+  - [Building and Testing](#building-and-testing)
     - [Building](#building)
-    - [Cleaning](#cleaning)
-    - [Test Bench](#test-bench)
-    - [Run with text file of URLs](#run-with-text-file-of-urls)
-    - [./test.sh](#testsh)
+    - [Running Tests](#running-tests)
+  - [Usage](#usage)
+    - [Starting the Client](#starting-the-client)
+    - [Starting the Server](#starting-the-server)
+    - [Interacting with the Application](#interacting-with-the-application)
   - [Known Limitations](#known-limitations)
-  - [Contribution and License Agreement](#contribution-and-license-agreement)
-  - [License](#license-1)
-      - [Also seen in `LICENSE`](#also-seen-in-license)
+  - [License](#license)
+
+---
 
 ## Description
+The purpose of this repository is to provide a comprehensive solution for evaluating and managing software packages. It consists of a **ReactJS client** (located within the `client` directory) and a **TypeScript server** (located within the `server` directory) working together to handle package evaluations, user management, and visualization of package metrics.
 
-### Purpose
+---
 
-The purpose of this repository/project is to have a fair and comprehensive evaluation of other repositories/libraries/dependences/projects/etc... for which the evaluation is numerical and objective. 
-
-### ACME Module Evaluator CLI
-
-This repository contains a command-line tool designed to help ACME Corporation’s service engineering teams evaluate and select reliable open-source Node.js modules. The tool analyzes each module based on key metrics such as ramp-up time, correctness, bus factor, maintainer responsiveness, and license compatibility. Results are output in NDJSON format with detailed scores and latencies for each metric.
-
-## File Documentation
-
-### [Metrics](docs/metrics.md)
-
-This code sets up a system for calculating metrics related to a GitHub repository, handling environment variables, logging, and making requests to the GitHub API. Below is an explanation of the key components:
-
-### [Maintainability](docs/maintainability.md)
-
-The `Maintainability` class calculates and evaluates the maintainability of a repository by analyzing its issue resolution time. This class extends the `Metrics` class and provides methods to assess maintainability based on the average time taken to resolve issues in the repository.
-
-### [RampUp](docs/rampUp.md)
-
-The `RampUp` class is responsible for evaluating how quickly a new contributor can ramp up on a repository. The ramp-up score is calculated based on the presence of key files and directories that are essential for understanding and contributing to the repository. This class extends the `Metrics` class.
-
-### [Correctness](docs/correctness.md)
-
-The `Correctness` class calculates the correctness of a repository based on its issues data. Correctness is evaluated by measuring the ratio of open bug issues to total open issues in the repository. This class extends the `Metrics` class and provides methods to evaluate the correctness.
-
-### [BusFactor](docs/busFactor.md)
-
-The `BusFactor` class calculates the bus factor of a repository. The bus factor is a measure of how many developers would need to leave a project before it becomes infeasible to maintain the codebase. This class extends the `Metrics` class and provides methods to evaluate the bus factor.
-
-### [Responsiveness](docs/responsiveness.md)
-
-The `Responsiveness` class evaluates the responsiveness of a repository by analyzing the time taken to respond to issues and pull requests. This class extends the `Metrics` class and provides methods to assess responsiveness based on the average response time to issues and pull requests.
-
-### [License](docs/license.md)
-
-The `License` class evaluates the license compatibility of a repository by analyzing the license types of its dependencies. This class extends the `Metrics` class and provides methods to assess license compatibility based on the license types of the repository’s dependencies.
-
-### [NetScore](docs/netScore.md)
-
-The `NetScore` class calculates the overall net score for a software project by combining several metrics such as BusFactor, Correctness, License, RampUp, and Maintainability. Each metric is weighted and contributes to the final score, which is computed as a weighted average. The score is clamped between 0 and 1, where 1 represents the best performance.
-
-### [testUtils](docs/testUtils.md)
-
-This module provides a set of assertion functions that compare actual values to expected values within specified thresholds. These functions log the results of the assertions, indicating whether they pass or fail.
-
-## Install
-
-```bash
-git clone https://github.com/galaxybomb23/ECE461-Software-Engineering
+## Client Overview
+### File Structure
 ```
+client/
+├── src/
+│   ├── components/      # Reusable UI components (e.g., Header, Footer)
+│   ├── pages/           # Core application pages (e.g., Dashboard, UploadPackage)
+│   ├── helpers/         # Helper functions for UI logic
+├── public/              # Static files (e.g., index.html, favicon)
+├── package.json         # Client dependencies and scripts
+```
+
+### Features
+- **Dashboard**: Main home page where user can access all functionality
+- **Upload Package**: Upload package to package registry
+- **Search Page**: Search for package based on RegEx in package and READMEs
+- **View Database**: View paginated result of all packages in database
+- **Account Page**: Change own user's username or password
+- **Admin Page**: Admin-Only privileges, such as creating a new user or resetting the registry
+
+---
+
+## Server Overview
+### File Structure
+```
+server/
+├── src/
+│   ├── API/                  # Core API logic
+│   │   ├── config/           # Configuration files (e.g., CORS, database)
+│   │   ├── helpers/          # Utility modules for API operations
+│   │   ├── routes/           # API route handlers
+│   ├── metricsCalculation/   # Metric evaluation logic
+│   ├── types/                # Type definitions
+├── package.json              # Server dependencies and scripts
+```
+
+### API Routes
+#### **Users**:
+- `POST /create-user`: Creates a new user account.
+- `POST /login`: Authenticates user through username and password.
+- `GET /get-user`: Retrieves user details through JWT.
+- `PUT /change-username`: Updates the username of a user.
+- `POST /clear-tokens`: Clears all active web-tokens for a user.
+- `PUT /change-password`: Changes the password for a user.
+- `DELETE /delete-token`: Deletes a specific web-token for a user.
+
+#### **Packages**:
+- `GET /package`: Gets packages that follow the RegEx specified.
+- `POST /package`: Creates a new package.
+- `GET /package/:id`: Retrieves package details and content for a specific package.
+- `POST /package/:id`: Updates details for a specific package.
+- `GET /package/:id/rate`: Retrieves the rating for a specific package.
+- `GET /package/:id/cost`: Retrieves the cost associated with a specific package.
+- `POST /package/byRegEx`: Searches for packages based on a regular expression.
+
+#### **Other**:
+- `POST /reset`: Resets system configurations.
+- `POST /authenticate`: Verifies user authentication and session validity.
+- `GET /tracks`: Fetches or updates track-related information.
+
+
+### Metrics Calculation
+- **Ramp-Up Time**: Measures time required for new contributors to adapt.
+- **Correctness**: Evaluates the ratio of open bugs to total issues.
+- **Bus Factor**: Assesses the risk of project collapse if key developers leave.
+- **License Compatibility**: Analyzes dependency licenses for conflicts.
+- **Net Score**: Aggregates all metrics into a final comprehensive score.
+
+---
+
+## Setup and Installation
+### Client Setup
+1. Navigate to the `client/` directory:
+   ```bash
+   cd client
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Configure environment variables:
+   - Create a `.env` (empty samples is provided as `.env.example`) file in the `client/` directory with required configurations (e.g., `REACT_APP_API_URL`, `REACT_APP_API_PORT`).
+
+### Server Setup
+1. Navigate to the `server/` directory:
+   ```bash
+   cd server
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Configure environment variables:
+   - Create a `.env` (empty samples is provided as `.env.example`) file in the `server/` directory with required configurations (e.g., `DB_CONNECTION`, `S3_BUCKET`).
+
+---
+
+## Building and Testing
+### Building
+- **Client**: Run `npm run build` in the `client/` directory to generate production-ready files.
+- **Server**: Run `npm run build` in the `server/` directory to compile TypeScript into JavaScript.
+
+### Running Tests
+- **Client**: Use `npm test` for running React component tests.
+- **Server**: Run the test suite:
+  ```bash
+  npm run test
+  ```
+
+---
 
 ## Usage
+### Starting the Client
+1. Navigate to the `client/` directory:
+   ```bash
+   cd client
+   ```
+2. Start the development server:
+   ```bash
+   npm run start
+   ```
 
-All usage for this project is through the `run` executable.
+### Starting the Server
+1. Navigate to the `server/` directory:
+   ```bash
+   cd server
+   ```
+2. Start the API server:
+   ```bash
+   npm run start-server
+   ```
 
-### NOTE for WSL users:
+### Interacting with the Application
+- Open the client in your browser at `http://localhost:3000`.
+- Use the client interface to interact with the backend API.
 
-You may encounter the following error when trying to run the checker/run script
-
-```bash
-bad interpreter: /bin/bash^M: no such file or directory
-```
-
-This is because windows saves the file using CRLF format while WSL expects it to be a LF format. To fix this you need to change the line ending for the file to LF. This can be done in VScode or using `dos2unix` and running the following command:
-
-```bash
-dos2unix run test.sh test/URLS.txt checker/one-url.txt
-```
-
-### Initial Setup
-
-`cd` into the cloned directory.
-
-Create a new file titled `.env` in the root of the repo. Copy and paste the text below into the file. Paste your GitHub API token in the quotes after `GITHUB_TOKEN`. Type the desired log level into the quotes after `LOG_LEVEL`. Paste the path of your log file in the quotes after `LOG_FILE`.
-
-Log levels include:
-|Debug|Level|
-|--|--|
-|0|Error|
-|1|Info|
-|2|Debug|
-
-```
-GITHUB_TOKEN = "<github_token>"
-LOG_LEVEL = "1"
-LOG_FILE = "logs/run.log"
-```
-
-Run the following command in a terminal while in the root of the repo to install the dependencies:
-
-```bash
-./run install
-```
-
-### Building
-
-To build the project run the following command:
-
-```bash
-./run build
-```
-
-### Cleaning
-
-To clean the project run the following command:
-
-```bash
-./run clean
-```
-
-### Test Bench
-
-To run the test bench run the following command:
-
-```bash
-./run test
-```
-
-### Run with text file of URLs
-
-To run the project with a text file of URLs run the following command:
-
-```bash
-./run <path/to/file>
-```
-
-and replace the `<path/to/file>` with the path of the text file you are trying to process. Make sure that the text file contains **1 URL per line**.
-Ex.)
-
-```
-https://github.com/mrdoob/three.js
-https://github.com/cloudinary/cloudinary_npm
-https://www.npmjs.com/package/express
-```
-
-### ./test.sh
-
-This script is used to evaluate the effectiveness of our metric equations. To run it use the following command:
-
-```bash
-./test.sh
-```
+---
 
 ## Known Limitations
+- **Compatability**: Relies on an NPM package having a GitHub URL (if external)
 
-- We do not utilize hermetic testing (i.e. mocking). As a result, the test bench will make API calls using your token. If external repositories change/receive pushes it's possible for our calculated metrics to change and fail some test cases.
 
-## Contribution and License Agreement
-
-If you contribute code to this project, you are implicitly allowing your code
-to be distributed under the MIT license. You are also implicitly verifying that
-all code is your original work.
+---
 
 ## License
+This project is licensed under the [MIT License](LICENSE).
 
-#### Also seen in `LICENSE`
-
-MIT License
-Copyright (c) 2024 Elijah Jorgensen
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

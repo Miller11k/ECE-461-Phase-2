@@ -1,0 +1,285 @@
+/* General Styling */
+body {
+  background-color: #1e1e1e;
+  color: #ffffff;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Package Details Section */
+.package-details {
+  background-color: #2a2a2a;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  color: #e0e0e0;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.package-details h1 {
+  margin-bottom: 20px;
+  color: #ffffff;
+  font-weight: 300;
+  text-align: center;
+}
+
+.package-details p {
+  margin: 10px 0;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+/* Buttons */
+.download-button, .update-button {
+  display: inline-block;
+  margin-top: 20px;
+  padding: 10px 20px;
+  background-color: #444; /* Match the dark theme */
+  color: #e0e0e0; /* Light gray text for better contrast */
+  border: 1px solid #666; /* Subtle border to align with the theme */
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.download-button:hover, .update-button:hover {
+  background-color: #555; /* Slightly lighter for hover effect */
+  color: #fff; /* White text on hover */
+}
+
+.update-button {
+  background-color: #4caf4f00; /* Green for update action */
+  color: white;
+}
+
+.update-button:hover {
+  background-color: #45a049; /* Darker green on hover */
+}
+
+/* Error and Success Messages */
+.error-message, .success-message {
+  text-align: center;
+  font-weight: bold;
+  margin-top: 20px;
+}
+
+.error-message {
+  color: #ff4d4f; /* Red for errors */
+}
+
+.success-message {
+  color: #28a745; /* Green for success */
+}
+
+/* Loader Styling */
+.loader-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%; /* Full height of the container */
+}
+
+.spinner {
+  border: 8px solid #f3f3f3; /* Light gray */
+  border-top: 8px solid #3498db; /* Blue */
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+}
+
+/* Spinner animation */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Update Form Section */
+.update-package-form {
+  margin-top: 20px;
+}
+
+.update-package-form label {
+  display: block;
+  margin-bottom: 10px;
+  color: #ffffff;
+}
+
+.update-package-form input,
+.update-package-form textarea {
+  width: 90%;
+  padding: 10px;
+  margin-bottom: 20px;
+  background-color: #2e2e2e;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 16px;
+}
+
+.update-package-form input::placeholder,
+.update-package-form textarea::placeholder {
+  color: #777; /* Placeholder text color */
+}
+
+/* File Drop Area */
+.file-drop {
+  border: 2px dashed #555;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+  color: #aaa;
+}
+
+.file-drop:hover {
+  border-color: #888;
+  color: #fff;
+}
+
+/* Centered File Drop Label */
+.file-drop label {
+  text-align: center;
+  font-size: 14px;
+  color: #aaa;
+  cursor: pointer;
+}
+
+/* For Dragging State */
+.file-drop.dragging {
+  border-color: #ffffff;
+}
+
+/* Form Group Styling */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.form-group label {
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.form-group input[type="text"], .form-group input[type="url"] {
+  padding: 10px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background-color: #2e2e2e;
+  color: #ffffff;
+  width: 100%;
+  max-width: 300px; /* Limit the width */
+}
+
+.form-group input::placeholder {
+  color: #777;
+}
+
+/* InternalPackage.css */
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  font-size: 1rem;
+  color: #ffffff;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.checkbox-container input[type="checkbox"] {
+  appearance: none;
+  width: 32px;  /* Adjust the width */
+  height: 32px; /* Adjust the height */
+  border-radius: 4px;
+  border: 2px solid #007bff;
+  background-color: #fff;
+  margin-right: 10px;
+  position: relative;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.checkbox-container input[type="checkbox"]:checked {
+  background-color: #007bff;
+  border-color: #0056b3;
+}
+
+.checkbox-container input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 5px;    /* Adjust position of checkmark */
+  left: 5px;   /* Adjust position of checkmark */
+  width: 16px; /* Adjust the size of the checkmark */
+  height: 16px;/* Adjust the size of the checkmark */
+  background-color: white;
+  border-radius: 2px;
+}
+
+.checkbox-container input[type="checkbox"]:focus {
+  outline: none;
+  border-color: #0056b3;
+}
+
+.checkbox-container label {
+  cursor: pointer;
+  font-weight: normal;
+  user-select: none;
+}
+
+.checkbox-container:hover input[type="checkbox"] {
+  border-color: #0056b3;
+}
+
+.checkbox-container:hover label {
+  color: #007bff;
+}
+
+
+/* Consistent Version Input Styling */
+.version-input {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.version-input input {
+  width: 60px;
+  text-align: center;
+  margin: 0 5px;
+}
+
+.version-input span {
+  color: #ffffff;
+}
+
+/* Button Group */
+.button-group {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.button-group button {
+  padding: 12px 25px;
+  cursor: pointer;
+  border: none;
+  background-color: #007bff;
+  color: #ffffff;
+  border-radius: 4px;
+  font-size: 16px;
+  transition: background-color 0.3s ease;
+}
+
+.button-group button:hover {
+  background-color: #0056b3;
+}

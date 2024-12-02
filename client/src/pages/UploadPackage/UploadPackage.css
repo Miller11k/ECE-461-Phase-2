@@ -1,0 +1,100 @@
+/* Upload.css */
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+.page-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 20px;
+  margin-top: 50px;
+}
+
+.login-container {
+  display: flex;
+  flex-direction: column; /* Stacks header and login box vertically */
+  justify-content: center; /* Centers items vertically */
+  height: 100vh; /* Full screen height */
+  text-align: center;
+}
+
+.login-header {
+  font-family: 'Roboto', sans-serif;
+  font-size: 3rem;
+  color: #e3e3e3;
+  margin-bottom: 20px; /* Controls space between header and box */
+  margin-top: 100px;
+}
+
+.login-box {
+  background-color: #2e2e2e; /* Add background for the login box */
+  padding: 20px;
+  border-radius: 8px; /* Rounded corners */
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column; /* Keeps content in a column */
+  align-items: center; /* Centers everything in the box */
+}
+
+.logo-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 150px; /* Circle width */
+  height: 150px; /* Circle height */
+  background-color: #676666; /* Grey circle background */
+  border-radius: 50%; /* Creates the circle */
+  margin: 0 auto 20px; /* Center and add spacing below */
+}
+
+.company-logo {
+  width: 80%; /* Resize logo relative to the circle */
+  height: auto; /* Maintain aspect ratio */
+}
+
+
+.button-custom {
+  background-color: #2e2e2e;
+  border: 0 solid #444;
+  border-radius: 1.5rem;
+  box-sizing: border-box;
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-block;
+  font-family: "Basier circle", -apple-system, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 1rem 1.6rem;
+  text-align: center;
+  text-decoration: none;
+  transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.25);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.button-custom:hover {
+  background-color: #1e293b;
+  color: #ffffff;
+}
+
+@media (min-width: 768px) {
+  .button-custom {
+    font-size: 1.125rem;
+    padding: 1rem 2rem;
+  }
+}
