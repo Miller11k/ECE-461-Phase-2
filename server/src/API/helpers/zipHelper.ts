@@ -1,3 +1,8 @@
+/**
+ * @module ZipConverter
+ * Provides utility functions for converting zip files to Base64, saving Base64 strings as zip files, and triggering downloads in a browser.
+ */
+
 import * as fs from 'fs';
 import * as path from 'path';
 import simpleGit from 'simple-git';
@@ -11,9 +16,19 @@ type InputType = string | File;
 const execPromise = util.promisify(exec);
 /**
  * Converts a zip file to a Base64 string.
- * @param {InputType} input - The input can either be a file path or a File object.
+ * 
+ * @function convertZipToBase64
+ * @param {InputType} input - The input can either be a file path (string) or a `File` object.
  * @returns {Promise<string>} A promise that resolves to the Base64 string representation of the zip file.
- * @throws Will reject if the input is invalid or the file cannot be read.
+ * @throws Will reject if the input is invalid, the file is not a valid zip file, or cannot be read.
+ * 
+ * @example
+ * // Convert a zip file from the file system to Base64
+ * convertZipToBase64('/path/to/file.zip').then((base64) => console.log(base64));
+ * 
+ * @example
+ * // Convert a zip file from a browser's File object to Base64
+ * const base64 = await convertZipToBase64(fileInput.files[0]);
  */
 export function convertZipToBase64(input: InputType): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -51,9 +66,15 @@ export function convertZipToBase64(input: InputType): Promise<string> {
 
 /**
  * Saves a Base64-encoded string as a zip file.
+ * 
+ * @function saveBase64AsZip
  * @param {string} base64 - The Base64 string representing the zip file.
  * @param {string} outputFileName - The desired name of the output zip file.
  * @throws Will throw an error if the file cannot be written.
+ * 
+ * @example
+ * const base64 = '...'; // Base64 representation of a zip file
+ * saveBase64AsZip(base64, 'output.zip');
  */
 export function saveBase64AsZip(base64: string, outputFileName: string): void {
     const binaryBuffer = Buffer.from(base64, 'base64'); // Decode Base64 to binary buffer
@@ -64,8 +85,14 @@ export function saveBase64AsZip(base64: string, outputFileName: string): void {
 
 /**
  * Triggers a download of a Base64-encoded zip file in the browser.
+ * 
+ * @function downloadBase64AsZip
  * @param {string} base64 - The Base64 string representing the zip file.
  * @param {string} fileName - The desired name of the downloaded file.
+ * 
+ * @example
+ * const base64 = '...'; // Base64 representation of a zip file
+ * downloadBase64AsZip(base64, 'myfile.zip');
  */
 export function downloadBase64AsZip(base64: string, fileName: string): void {
     // Ensure the file name ends with '.zip'

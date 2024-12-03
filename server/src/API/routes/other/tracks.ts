@@ -1,4 +1,8 @@
-/* Handles `/tracks` (GET) */
+/**
+ * @module TracksRoute
+ * Defines the `/tracks` endpoint for retrieving the list of planned tracks.
+ */
+
 import { Request, Response, Router } from 'express';
 
 
@@ -9,22 +13,26 @@ const router = Router();
 /**
  * Handles the `/tracks` endpoint (GET).
  * 
- * This route returns a JSON response containing the list of planned tracks 
- * a student has implemented in their code. The available tracks are:
- * - "Performance track"
- * - "Access control track"
- * - "High assurance track"
- * - "ML inside track"
- *
- * @module TracksRoute
- * @requires express
+ * This route provides a JSON response with a list of planned tracks
+ * that students can implement in their code. The currently available tracks are:
+ * - "Authentication Track"
  * 
  * @route GET /tracks
  * @group Tracks - Operations related to planned student tracks.
  * 
- * @returns {Object} 200 - JSON object containing the planned tracks.
- * @returns {Array<string>} 200.plannedTracks - List of planned tracks.
- * @returns {Object} 500 - Error response if the system encounters an issue.
+ * @param {Request} req - The HTTP request object.
+ * @param {Response} res - The HTTP response object.
+ * 
+ * @returns {Object} A JSON response with the list of planned tracks:
+ * - `plannedTracks`: An array of strings representing the available tracks.
+ * 
+ * @example
+ * // Successful response:
+ * {
+ *   "plannedTracks": [
+ *     "Authentication Track"
+ *   ]
+ * }
  */
 router.get('/', async (req, res) => {
     // Return the JSON structure
