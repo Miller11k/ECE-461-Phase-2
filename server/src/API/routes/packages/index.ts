@@ -1,3 +1,8 @@
+/**
+ * @module PackageRouter
+ * Defines and groups package-related routes for handling package operations.
+ */
+
 import { Router } from 'express';
 import createPackageRoute from './create.js';
 import getPackageRoute from './get.js';
@@ -9,17 +14,47 @@ import byRegexPackageRoute from './byRegex.js';
 
 const router = Router();
 
-// Define package-related routes
-router.get('/:id/rate', ratePackageRoute); // GET /package/{id}/rate
-router.get('/:id/cost', costPackageRoute); // GET /package/{id}/cost
-router.post('/byRegEx', byRegexPackageRoute); // POST /package/byRegEx
+/**
+ * GET `/package/:id/rate` - Retrieves the rating of a package by ID.
+ * @see {@link ./rate.js}
+ */
+router.get('/:id/rate', ratePackageRoute);
 
-// More general routes go last
-router.post('/:id', updatePackageRoute); // POST /package/:id
-router.get('/:id', getPackageRoute); // GET /package/:id
-router.get('/', invalidGetPackageRoute); // GET /package
+/**
+ * GET `/package/:id/cost` - Retrieves the cost of a package by ID.
+ * @see {@link ./cost.js}
+ */
+router.get('/:id/cost', costPackageRoute);
 
-// Root route for creating packages
-router.post('/', createPackageRoute); // POST /package
+/**
+ * POST `/package/byRegEx` - Retrieves packages matching a regular expression.
+ * @see {@link ./byRegex.js}
+ */
+router.post('/byRegEx', byRegexPackageRoute);
+
+/**
+ * POST `/package/:id` - Updates a package by ID.
+ * @see {@link ./update.js}
+ */
+router.post('/:id', updatePackageRoute);
+
+/**
+ * GET `/package/:id` - Retrieves a package's metadata and content by ID.
+ * @see {@link ./get.js}
+ */
+router.get('/:id', getPackageRoute);
+
+/**
+ * GET `/package` - Handles invalid GET requests to the root package route.
+ * @see {@link ./invalidGet.js}
+ */
+router.get('/', invalidGetPackageRoute);
+
+
+/**
+ * POST `/package` - Creates a new package.
+ * @see {@link ./create.js}
+ */
+router.post("/", createPackageRoute);
 
 export default router;

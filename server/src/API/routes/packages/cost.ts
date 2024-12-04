@@ -1,171 +1,76 @@
 import { Request, Response, Router } from 'express';
 import { employeeDB, userDBClient, packagesDBClient, packageDB, dependenciesDB } from '../../config/dbConfig.js';
-import { decodeAuthenticationToken } from '../../helpers/jwtHelper.js';
+import { decodeAuthenticationToken, displayDecodedPayload } from '../../helpers/jwtHelper.js';
+import { calculatePackageCost } from '../../helpers/packageHelper.js';
+import { validate as isValidUUID } from 'uuid';
+
 
 // Create a new router instance to define and group related routes
 const router = Router();
 
 /**
  * GET /package/:id/cost - Retrieves the size cost of a package and its dependencies.
- * 
+ *
  * @async
  * @function
  * @param {Request} req - The HTTP request object.
  * @param {Response} res - The HTTP response object.
- * 
+ *
  * @description This endpoint requires an X-Authorization header containing a valid JWT.
- * It calculates both the standalone and total size cost of a given package and its transitive dependencies.
+ * The endpoint returns the size cost of a package, including its dependencies if requested.
  */
-router.get('/:id/cost', async (req: Request, res: Response) => {
-    try {
-        // Extract the X-Authorization header
-        const authHeader = req.headers['x-authorization'];
+router.get('/:id/cost', async (req, res) => {
+    console.log("req.query", req.query);
+    console.log("req.params", req.params);
+    console.log("req.headers", req.headers);
 
-        // Validate the X-Authorization header
+    console.log('Incoming request to /package/:id/cost');
+    try {
+
+        // Extract and validate the X-Authorization header
+        const authHeader = req.headers['x-authorization'];
         if (!authHeader || typeof authHeader !== 'string') {
-            res.status(403).json({ error: "Missing or invalid X-Authorization header" });
+            // Respond with 403 if the header is missing or invalid
+            res.status(403).json({ error: "Invalid or missing X-Authorization header" });
             return;
         }
 
-        // Extract the token from the header
+        // Extract the token from the header, removing the "Bearer " prefix if present
         const x_authorization = authHeader.toLowerCase().startsWith("bearer ")
             ? authHeader.slice("bearer ".length).trim()
             : authHeader.trim();
 
-        // Verify user authentication using the provided token and retrieve the salt
-        // const result = await userDBClient.query(
-        //     `SELECT "salt" FROM ${employeeDB} WHERE "X-Authorization" = $1`,
-        //     [x_authorization]
-        // );
+        const decoded_jwt = await decodeAuthenticationToken(x_authorization);
 
-        // // Check if JWT is valid
-        // if (result.rows.length === 0) {
-        //     res.status(403).json({ success: false, message: 'Authentication failed.' });
-        //     return;
-        // }
+        // If no user matches the token, respond with 403
+        if (!decoded_jwt) {
+            res.status(403).json({ success: false, message: 'Authentication failed.' });
+            return;
+        }
 
-        // // Extract the salt from the query result
-        // const salt = result.rows[0].salt;
-        // // const decoded_jwt = decodeAuthenticationToken(x_authorization, salt);
-        // const decoded_jwt = decodeAuthenticationToken(x_authorization);
+        // Extract package ID from request parameters
+        const packageId = req.params.id; 
 
-        // if (!decoded_jwt) {
-        //     res.status(403).json({ success: false, message: 'Authentication failed.' });
-        //     return;
-        // }
+        // Debugging - Log package ID
+        console.debug(`Requested package ID: ${packageId}`);
 
-        // // Extract package ID from request params
-        // const packageId = req.params.id;
-        // if (!packageId) {
-        //     res.status(400).json({ error: "Package ID is required." });
-        //     return;
-        // }
+        // Check if package ID is valid
+        if (!packageId || !isValidUUID(packageId)) {
+            res.status(400).json({ error: "Invalid package ID format." });
+            return;
+        }
 
-        // // Query to get package standalone size
-        // const packageResult = await packagesDBClient.query(
-        //     `SELECT package_name, version, file_location FROM ${packageDB} WHERE package_id = $1`,
-        //     [packageId]
-        // );
+        // Calculate package cost using helper function
+        const costResult = await calculatePackageCost(packageId, req.query.dependency === 'true');
 
-        // if (packageResult.rows.length === 0) {
-        //     res.status(404).json({ error: "Package not found." });
-        //     return;
-        // }
+        // Debugging - Log final response
+        console.debug('Final response:', costResult);
 
-        // const { package_name, version, file_location } = packageResult.rows[0];
-
-        // // Calculate standalone cost (size of the package zip file)
-        // let standaloneCost = 0;
-        // if (file_location) {
-        //     // Assuming we have a function to get the size of the file
-        //     standaloneCost = await getFileSize(file_location); 
-        // }
-
-        // // Query to get dependencies
-        // const dependenciesResult = await packagesDBClient.query(
-        //     `SELECT dependency_url FROM ${dependenciesDB} WHERE package_id = $1`,
-        //     [packageId]
-        // );
-
-        // // Calculate the total cost including transitive dependencies
-        // let totalCost = standaloneCost;
-        // const visitedPackages = new Set();
-
-        // async function calculateDependencyCost(dependencyUrl: string): Promise<number> {
-        //     if (visitedPackages.has(dependencyUrl)) {
-        //         return 0; // Prevent infinite loops due to circular dependencies
-        //     }
-        //     visitedPackages.add(dependencyUrl);
-
-        //     const depResult = await packagesDBClient.query(
-        //         `SELECT package_id, file_location FROM ${packageDB} WHERE repo_link = $1`,
-        //         [dependencyUrl]
-        //     );
-
-        //     if (depResult.rows.length === 0) {
-        //         return 0; // Dependency not found in the registry
-        //     }
-
-        //     const { package_id, file_location } = depResult.rows[0];
-        //     let dependencyCost = 0;
-
-        //     if (file_location) {
-        //         dependencyCost = await getFileSize(file_location);
-        //     }
-
-        //     // Recursively calculate the cost of sub-dependencies
-        //     const subDependenciesResult = await packagesDBClient.query(
-        //         `SELECT dependency_url FROM ${dependenciesDB} WHERE package_id = $1`,
-        //         [package_id]
-        //     );
-
-        //     for (const subDep of subDependenciesResult.rows) {
-        //         dependencyCost += await calculateDependencyCost(subDep.dependency_url);
-        //     }
-
-        //     return dependencyCost;
-        // }
-
-        // for (const dep of dependenciesResult.rows) {
-        //     totalCost += await calculateDependencyCost(dep.dependency_url);
-        // }
-
-        // res.status(200).json({
-        //     packageId,
-        //     package_name,
-        //     version,
-        //     standaloneCost,
-        //     totalCost
-        // });
-        // return;
-
-        const packageId = 'temp';
-        const package_name=  'temp';      
-        const version =        'temp';
-        const standaloneCost ='temp';
-        const totalCost ='temp';
-        
-        res.status(200).json({
-            packageId,
-            package_name,
-            version,
-            standaloneCost,
-            totalCost
-        });
-        return;
-
+        res.status(200).json(costResult);
     } catch (error) {
-        console.error(error);
+        console.error('Internal server error:', error);
         res.status(500).json({ error: "Internal server error" });
-        return;
     }
 });
-
-// Mock function to get file size from a location (e.g., S3)
-async function getFileSize(fileLocation: string): Promise<number> {
-    // Implement the logic to get file size from the given file location
-    // For now, we'll return a mocked value
-    return 50.0; // Size in MB
-}
 
 export default router;

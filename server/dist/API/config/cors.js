@@ -1,11 +1,25 @@
+/**
+ * @module CorsConfig
+ * Provides configuration for Cross-Origin Resource Sharing (CORS) in the application.
+ */
 import cors from 'cors';
 /**
- * Configures Cross-Origin Resource Sharing (CORS) for the application.
- * Allows requests from any origin with the specified HTTP methods and headers.
+ * CORS configuration for the application.
+ * This setup allows the application to handle cross-origin requests with the following options:
  *
- * - `origin: '*'`: Permits requests from any origin.
- * - `methods`: Specifies allowed HTTP methods for CORS requests.
- * - `allowedHeaders`: Defines headers allowed in CORS requests.
+ * - **`origin`**: `'*'` - Allows requests from any origin.
+ * - **`methods`**: Specifies the HTTP methods permitted for CORS requests, including:
+ *   - GET
+ *   - POST
+ *   - PUT
+ *   - DELETE
+ *   - OPTIONS
+ * - **`allowedHeaders`**: Defines the request headers that are allowed for CORS requests:
+ *   - `Content-Type`
+ *   - `Authorization`
+ *   - `X-Authorization`
+ *
+ * @constant {Function}
  */
 const corsConfig = cors({
     origin: '*', // Allow requests from any origin

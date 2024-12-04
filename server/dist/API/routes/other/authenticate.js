@@ -1,3 +1,7 @@
+/**
+ * @module AuthenticationRouter
+ * Defines the authentication endpoint for user validation and token generation.
+ */
 import { Router } from 'express';
 import { userDBClient, employeeDB } from '../../config/dbConfig.js';
 import { validatePassword } from '../../helpers/passwordHelper.js';
@@ -5,11 +9,42 @@ import { generateAuthenticationToken } from '../../helpers/jwtHelper.js';
 // Create a new router instance to define and group related routes
 const router = Router();
 /**
- * Endpoint to authenticate a user based on a session token.
- * @route POST /authenticate
- * @param req.body.username {string} Username of the user.
- * @param req.body.token {string} Session token for authentication.
- * @returns {object} Success status with username and token if valid, or an error message.
+ * Endpoint to authenticate a user and generate a session token.
+ *
+ * @route PUT /
+ * @param {Request} req - The HTTP request object.
+ * @param {Object} req.body - The request body containing user credentials.
+ * @param {string} req.body.User.name - The username of the user.
+ * @param {boolean} req.body.User.isAdmin - Indicates if the user is an admin.
+ * @param {string} req.body.Secret.password - The password of the user.
+ * @param {Response} res - The HTTP response object.
+ * @returns {Object} A JSON response with the authentication result:
+ * - `success: true` and a `token` if authentication is successful.
+ * - `success: false` and an error `message` if authentication fails.
+ *
+ * @example
+ * // Request body:
+ * {
+ *   "User": {
+ *     "name": "johndoe",
+ *     "isAdmin": false
+ *   },
+ *   "Secret": {
+ *     "password": "mypassword123"
+ *   }
+ * }
+ *
+ * // Successful response:
+ * {
+ *   "success": true,
+ *   "token": "bearer <token>"
+ * }
+ *
+ * // Failed response:
+ * {
+ *   "success": false,
+ *   "message": "Invalid Credentials"
+ * }
  */
 router.put('/', async (req, res) => {
     const { User: { name: username, isAdmin: input_is_admin }, Secret: { password } } = req.body;

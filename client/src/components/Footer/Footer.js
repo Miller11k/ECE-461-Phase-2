@@ -1,16 +1,23 @@
-// Footer.js
-import React from 'react';
-import './Footer.css';
+/**
+ * Footer Component
+ * 
+ * This component renders the footer of the application.
+ * It displays a copyright message with the current year.
+ * 
+ * @returns {JSX.Element} - The rendered Footer component
+ */
 
-// Define the Footer component
+import React from 'react';
+import './Footer.css'; // Import the CSS file for styling
+
 const Footer = () => {
-  return (
-    // Footer element with a class name for styling
-    <footer className="footer">
-      <p>&copy; {new Date().getFullYear()} ECE 461 (Group 1) All rights reserved.</p>
-    </footer>
-  );
+	// Render the Footer component
+	return (
+		<footer className="footer">
+		{/* Display the copyright message with the current year */}
+		<p>&copy; {new Date().getFullYear()} ECE 461 (Group 1) All rights reserved.</p>
+		</footer>
+	);
 };
 
-// Export the Footer component for use in other parts of the application
 export default Footer;

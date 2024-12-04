@@ -1,3 +1,14 @@
+/**
+ * ViewPackage Component
+ * 
+ * This component displays the details of a specific package, fetched using the package ID from the URL.
+ * Users can view metrics, download the package, and update it by uploading a new zip file or providing a URL.
+ * 
+ * @param {Object} props - Component props
+ * @param {Function} props.handleLogout - Function to handle user logout
+ * @returns {JSX.Element} - The rendered ViewPackage component
+ */
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';

@@ -1,3 +1,8 @@
+/**
+ * @module RegistryResetRouter
+ * Defines the endpoint for resetting the registry, clearing database tables, and cleaning up the S3 bucket.
+ */
+
 import { Request, Response, Router } from 'express';
 import { employeeDB, userDBClient, packagesDBClient, packageDB, metricsDB, dependenciesDB } from '../../config/dbConfig.js';
 import { decodeAuthenticationToken } from '../../helpers/jwtHelper.js';
@@ -7,16 +12,42 @@ import { deleteAllS3BucketContents } from '../../helpers/s3Helper.js';
 const router = Router();
 
 /**
- * DELETE / - Resets the registry by clearing the `packages`, `dependencies`, and `package_metrics` tables.
+ * Endpoint to reset the registry by clearing the `packages`, `dependencies`, and `package_metrics` tables,
+ * as well as deleting all contents in the associated S3 bucket.
  * 
+ * @route DELETE /
  * @async
  * @function
  * @param {Request} req - The HTTP request object.
  * @param {Response} res - The HTTP response object.
  * 
- * @description This endpoint requires an X-Authorization header containing a valid JWT.
- * Only admin users are allowed to perform this operation. The endpoint clears the relevant
- * database tables in a transactional manner to reset the registry state.
+ * @description
+ * This endpoint requires an `X-Authorization` header containing a valid JWT.
+ * Only admin users are authorized to perform this operation.
+ * The operation clears relevant database tables in a transactional manner and ensures
+ * that all contents in the S3 bucket are also deleted.
+ * 
+ * @returns {Object} A JSON response:
+ * - On success: `{ success: true, message: 'Registry is reset.' }`
+ * - On failure: `{ success: false, message: <error message> }`
+ * 
+ * @example
+ * // Request Headers:
+ * {
+ *   "X-Authorization": "Bearer <JWT>"
+ * }
+ * 
+ * // Successful response:
+ * {
+ *   "success": true,
+ *   "message": "Registry is reset."
+ * }
+ * 
+ * // Failed response:
+ * {
+ *   "success": false,
+ *   "message": "You do not have permission to reset the registry."
+ * }
  */
 router.delete('/', async (req, res) => {
     try {

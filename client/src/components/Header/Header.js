@@ -1,48 +1,66 @@
-// Import necessary React hooks and libraries
+/**
+ * Header Component
+ * 
+ * This component serves as the navigation header for the application.
+ * It includes a company logo, application title, and a dropdown menu for navigation and logout.
+ * The dropdown menu toggles open and closed, and it automatically closes when a click is detected outside of it.
+ * 
+ * @param {Object} props - Component props
+ * @param {Function} props.handleLogout - Function to handle user logout
+ * @returns {JSX.Element} - The rendered Header component
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import './Header.css'; // Import the CSS file for styling
 
-// Import the Header CSS file for styling
-import './Header.css';
-
-// Define the Header component with a handleLogout prop
 const Header = ({ handleLogout }) => {
-  // State for managing the dropdown menu visibility
+  // State for managing the visibility of the dropdown menu
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Reference for the dropdown menu to detect clicks outside
   const menuRef = useRef(null);
 
-  // Toggle the dropdown menu open/close state
+  /**
+   * Toggles the dropdown menu's visibility.
+   */
   const toggleMenu = () => {
-    setMenuOpen(!menuOpen);
+    setMenuOpen(!menuOpen); // Toggle the menu state
   };
 
-  // Effect to close the menu when clicking outside of it
+  /**
+   * Effect to handle clicks outside the dropdown menu to close it.
+   */
   useEffect(() => {
+    /**
+     * Handles clicks outside the dropdown menu.
+     * 
+     * @param {MouseEvent} event - The mouse event object
+     */
     const handleClickOutside = (event) => {
-      // Check if the click was outside the dropdown menu
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setMenuOpen(false); // Close the menu
       }
     };
 
-    // Attach the event listener on mount
+    // Attach the event listener for mouse clicks
     document.addEventListener('mousedown', handleClickOutside);
+
+    // Cleanup the event listener on component unmount
     return () => {
-      // Cleanup the event listener on unmount
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
 
+  // Render the Header component
   return (
-    // Header element with structured sections for left, center, and right content
     <header className="header">
       {/* Left section: Company logo */}
       <div className="header-left">
         <img src="/Logo.png" alt="Logo" className="header-logo" />
       </div>
-      {/* Center section: Application title with link to the dashboard */}
+
+      {/* Center section: Application title */}
       <div className="header-center">
         <h1>
           <Link to="/dashboard" className="header-title-link">
@@ -50,25 +68,29 @@ const Header = ({ handleLogout }) => {
           </Link>
         </h1>
       </div>
+
       {/* Right section: Dropdown menu and menu toggle button */}
       <div className="header-right" ref={menuRef}>
+        {/* Menu toggle button */}
         <button className="hamburger-menu" onClick={toggleMenu}>☰</button>
 
-        {/* Dropdown menu with conditional rendering based on menuOpen state */}
-        <div className={`dropdown-menu ${menuOpen ? 'open' : ''}`} onClick={(e) => e.stopPropagation()}>
-          {/* Links to various sections of the application */}
+        {/* Dropdown menu */}
+        <div
+          className={`dropdown-menu ${menuOpen ? 'open' : ''}`}
+          onClick={(e) => e.stopPropagation()} // Prevent click propagation to toggle menu state
+        >
+          {/* Navigation links */}
           <Link to="/view-database" className="dropdown-item">View The Database</Link>
           <Link to="/upload-package" className="dropdown-item">Upload Package</Link>
           <Link to="/search-for-package" className="dropdown-item">Search For A Package</Link>
           <Link to="/account" className="dropdown-item">Account Settings</Link>
 
-          {/* Logout option that triggers the handleLogout function */}
+          {/* Logout link */}
           <div onClick={handleLogout} className="dropdown-item logout">Logout</div>
         </div>
       </div>
-    </header>
+	  </header>
   );
 };
 
-// Export the Header component for use in other parts of the application
 export default Header;

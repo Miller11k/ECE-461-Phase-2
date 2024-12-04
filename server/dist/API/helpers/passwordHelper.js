@@ -1,15 +1,52 @@
+/**
+ * @module PasswordUtils
+ * Provides utility functions for securely hashing and validating passwords with salts.
+ */
 import * as crypto from 'crypto';
-// Hashes an input combined with a salt using SHA-256 (synchronous)
+/**
+ * Hashes an input string combined with a salt using the SHA-256 algorithm.
+ *
+ * @function hashWithSalt
+ * @param {string} input - The input string to hash.
+ * @param {string} [salt=""] - The salt to combine with the input (default is an empty string).
+ * @returns {string} A hexadecimal SHA-256 hash of the salted input.
+ *
+ * @example
+ * const hash = hashWithSalt('password', 'random_salt');
+ * console.log(hash); // Outputs the hashed value
+ */
 export function hashWithSalt(input, salt = "") {
     const saltedInput = `${input}-${salt}`; // Combine input and salt
     return crypto.createHash('sha256').update(saltedInput).digest('hex');
 }
-// Generates a cryptographically secure random salt
+/**
+ * Generates a cryptographically secure random salt.
+ *
+ * @function createSalt
+ * @param {number} [length=16] - The desired length of the salt (default is 16 bytes).
+ * @returns {string} A securely generated hexadecimal salt.
+ *
+ * @example
+ * const salt = createSalt(16);
+ * console.log(salt); // Outputs a random 16-byte salt
+ */
 export function createSalt(length = 16) {
     const array = crypto.randomBytes(length); // Use crypto for secure random values
     return Array.from(array).map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
-// Combines a password with a generated salt and hashes it through multiple rounds (synchronous)
+/**
+ * Combines a password with a generated salt and hashes it through multiple rounds.
+ *
+ * @function generatePassword
+ * @param {string} plaintext - The plaintext password to hash.
+ * @param {string} salt - The salt to combine with the password.
+ * @param {number} [rounds=12] - The number of hashing rounds (default is 12).
+ * @returns {string} The final hashed password after the specified number of rounds.
+ *
+ * @example
+ * const hashedPassword = generatePassword('mypassword', 'random_salt', 12);
+ * console.log(hashedPassword); // Outputs the final hashed password
+ */
 export function generatePassword(plaintext, salt, rounds = 12) {
     let hashValue = plaintext; // Start with the password
     // Perform hashing rounds
@@ -18,7 +55,19 @@ export function generatePassword(plaintext, salt, rounds = 12) {
     }
     return hashValue; // Return the final hash
 }
-// Validates a plaintext password against a hashed password using the salt
+/**
+ * Validates a plaintext password against a hashed password using the salt.
+ *
+ * @function validatePassword
+ * @param {string} plaintext - The plaintext password to validate.
+ * @param {string} ciphertext - The hashed password to compare against.
+ * @param {string} salt - The salt used to hash the password.
+ * @returns {boolean} `true` if the password is valid, `false` otherwise.
+ *
+ * @example
+ * const isValid = validatePassword('mypassword', 'hashed_password', 'random_salt');
+ * console.log(isValid); // Outputs true or false
+ */
 export function validatePassword(plaintext, ciphertext, salt) {
     let password = plaintext;
     for (let i = 0; i <= 12; i++) {

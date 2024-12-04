@@ -1,3 +1,8 @@
+/**
+ * @module ChangePasswordRoute
+ * Handles the `/change-password` endpoint for changing a user's password.
+ */
+
 import { Request, Response, Router } from 'express';
 import { createSalt, generatePassword } from '../../helpers/passwordHelper.js';
 import { userDBClient, employeeDB } from '../../config/dbConfig.js';
@@ -7,12 +12,52 @@ import { decodeAuthenticationToken } from '../../helpers/jwtHelper.js';
 const router = Router();
 
 /**
- * Endpoint to change a user's password.
+ * POST `/change-password` - Endpoint to change a user's password.
+ * 
  * @route POST /change-password
- * @param req.headers['x-authorization'] {string} The token for authentication.
- * @param req.body.newPassword {string} The new password to be set.
- * @param req.body.new_password {string} The new password to be set (alternative key).
- * @returns {object} Success status if the password is updated, or an error message.
+ * @group Users - Operations related to user management.
+ * 
+ * @param {Request} req - Express request object.
+ * @param {string} req.headers['x-authorization'] - The token for authentication.
+ * @param {string} req.body.newPassword - The new password to be set.
+ * @param {string} req.body.new_password - The new password to be set (alternative key).
+ * 
+ * @param {Response} res - Express response object.
+ * 
+ * @returns {Object} A JSON response:
+ * - `success: true` and a success message if the password is updated.
+ * - `success: false` and an error message if the operation fails.
+ * 
+ * @example
+ * // Request headers:
+ * {
+ *   "x-authorization": "Bearer <JWT>"
+ * }
+ * 
+ * // Request body:
+ * {
+ *   "newPassword": "myNewSecurePassword"
+ * }
+ * 
+ * // Successful response:
+ * {
+ *   "success": true,
+ *   "message": "Password changed successfully"
+ * }
+ * 
+ * @example
+ * // Error response (invalid token):
+ * {
+ *   "success": false,
+ *   "message": "Authentication failed."
+ * }
+ * 
+ * @example
+ * // Error response (password not provided):
+ * {
+ *   "success": false,
+ *   "message": "New password cannot be blank"
+ * }
  */
 router.post('/', async (req, res) => {
     try {
