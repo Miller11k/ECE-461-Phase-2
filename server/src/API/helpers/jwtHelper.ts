@@ -5,7 +5,6 @@
 
 import { createHash } from 'crypto';
 import { getJWTSecret } from './secretsHelper.js';
-import jwt from 'jsonwebtoken';
 
 /**
  * Represents the payload of a JWT token.

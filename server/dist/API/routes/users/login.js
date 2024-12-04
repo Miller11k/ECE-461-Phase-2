@@ -46,7 +46,6 @@ const router = Router();
  * }
  */
 router.post("/", async (req, res) => {
-    console.log("Received request at POST /login");
     // Destructure the flat structure
     const { username, password } = req.body;
     // Validate the input structure

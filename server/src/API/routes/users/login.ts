@@ -49,7 +49,6 @@ const router = Router();
  * }
  */
 router.post("/", async (req: Request, res: Response) => {
-  console.log("Received request at POST /login");
   // Destructure the flat structure
   const { username, password } = req.body;
 
