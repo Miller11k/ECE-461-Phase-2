@@ -1,5 +1,15 @@
+/**
+ * @module SecretsManager
+ * Provides utility functions for securely retrieving secrets from AWS Secrets Manager.
+ */
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
-// Set up AWS Secrets Manager client
+/**
+ * AWS Secrets Manager client instance.
+ * Configured using the following environment variables:
+ * - `AWS_REGION`: The AWS region where the Secrets Manager is hosted.
+ * - `AWS_ACCESS_KEY_ID`: The AWS access key ID for authentication.
+ * - `AWS_SECRET_ACCESS_KEY`: The AWS secret access key for authentication.
+ */
 const secretsManagerClient = new SecretsManagerClient({
     region: process.env.AWS_REGION || "",
     credentials: {
@@ -10,7 +20,22 @@ const secretsManagerClient = new SecretsManagerClient({
 /**
  * Retrieves and isolates the JWT secret from AWS Secrets Manager.
  *
+ * This function requires the following environment variables:
+ * - `JWT_SECRET_NAME`: The name of the secret in AWS Secrets Manager.
+ * - `JWT_SECRET_KEY`: The key within the secret JSON object that stores the JWT secret value.
+ *
+ * @async
+ * @function getJWTSecret
  * @returns {Promise<string>} The isolated JWT secret value.
+ *
+ * @throws Will throw an error if:
+ * - Environment variables `JWT_SECRET_NAME` or `JWT_SECRET_KEY` are missing.
+ * - The secret cannot be retrieved from AWS Secrets Manager.
+ * - The key specified by `JWT_SECRET_KEY` does not exist in the retrieved secret.
+ *
+ * @example
+ * const jwtSecret = await getJWTSecret();
+ * console.log("JWT Secret:", jwtSecret);
  */
 export const getJWTSecret = async () => {
     const jwtSecretName = process.env.JWT_SECRET_NAME;

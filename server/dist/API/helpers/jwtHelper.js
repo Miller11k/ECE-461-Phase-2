@@ -1,8 +1,14 @@
+/**
+ * @module JWTUtils
+ * This module provides utility functions to generate, decode, and display JSON Web Tokens (JWTs).
+ */
 import { createHash } from 'crypto';
 import { getJWTSecret } from './secretsHelper.js';
 /**
  * Generates a JWT with a signature.
  *
+ * @async
+ * @function generateAuthenticationToken
  * @param {string} firstName - The first name of the user.
  * @param {string} lastName - The last name of the user.
  * @param {string} username - The username of the user.
@@ -18,7 +24,7 @@ export async function generateAuthenticationToken(firstName, lastName, username,
         iat: Math.floor(Date.now() / 1000), // Current time in seconds
     };
     const header = {
-        alg: 'HS256', // Use a proper algorithm
+        alg: 'HS256', // Algorithm for signing
         typ: 'JWT',
     };
     const base64UrlEncode = (data) => Buffer.from(JSON.stringify(data))
@@ -40,6 +46,8 @@ export async function generateAuthenticationToken(firstName, lastName, username,
 /**
  * Decodes a JWT and verifies its signature.
  *
+ * @async
+ * @function decodeAuthenticationToken
  * @param {string} token - The JWT token to decode.
  * @returns {Promise<Omit<CustomJwtPayload, 'iat'> | null>} The decoded payload (excluding `iat`) if valid, otherwise `null`.
  */
@@ -76,6 +84,7 @@ export async function decodeAuthenticationToken(token) {
 /**
  * Displays the contents of a decoded JWT payload.
  *
+ * @function displayDecodedPayload
  * @param {Omit<CustomJwtPayload, 'iat'> | null} decodedPayload - The decoded JWT payload, or `null` if the token is invalid.
  * @returns {void} Nothing is returned; the payload details are printed to the console.
  */

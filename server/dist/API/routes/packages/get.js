@@ -1,8 +1,6 @@
 /**
- * Handles the `/package/{id}` endpoint (GET).
- * This route fetches metadata and content of a package by its ID, ensuring user authentication.
- *
  * @module routes/package
+ * Handles the `/package/:id` endpoint (GET) for retrieving package metadata and content by ID.
  */
 import { Router } from 'express';
 import { packagesDBClient, packageDB } from '../../config/dbConfig.js';
@@ -14,13 +12,41 @@ const router = Router();
 /**
  * GET `/package/:id` - Retrieves package metadata and content by ID.
  *
- * @name GET /package/:id
- * @function
- * @memberof module:routes/package
+ * @route GET /package/:id
+ * @group Packages - Operations related to package management.
  *
- * @param {Request} req - Express request object
- * @param {Response} res - Express response object
- * @returns {void} Sends a JSON response with package details or an error
+ * @param {Request} req - Express request object.
+ * @param {string} req.params.id - The unique ID of the package.
+ * @param {Response} res - Express response object.
+ *
+ * @returns {Object} A JSON response with the package metadata and content:
+ * - `metadata`: Contains `Name`, `Version`, and `ID`.
+ * - `data`: Contains the `Content` as a Base64-encoded string.
+ *
+ * @example
+ * // Successful response:
+ * {
+ *   "metadata": {
+ *     "Name": "example-package",
+ *     "Version": "1.0.0",
+ *     "ID": "123e4567-e89b-12d3-a456-426614174000"
+ *   },
+ *   "data": {
+ *     "Content": "<Base64-encoded content>"
+ *   }
+ * }
+ *
+ * @example
+ * // Error response (invalid ID):
+ * {
+ *   "error": "Invalid package ID format."
+ * }
+ *
+ * @example
+ * // Error response (not found):
+ * {
+ *   "error": "No package found with ID: 123e4567-e89b-12d3-a456-426614174000"
+ * }
  */
 router.get('/:id', async (req, res) => {
     try {

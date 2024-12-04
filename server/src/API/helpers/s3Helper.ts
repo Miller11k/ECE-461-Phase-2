@@ -7,6 +7,7 @@ import AWS from "aws-sdk";
 import archiver from "archiver";
 import unzipper from "unzipper";
 import stream from "stream";
+import fs from "fs";
 const { S3 } = AWS;
 
 
@@ -382,63 +383,57 @@ async function clearS3Folder(bucketName: string, folderKey: string, s3: AWS.S3):
  * @returns A promise that resolves to true if successful, or false if an error occurs.
  */
 export async function uploadUnzippedToS3(
-	zipFileBase64: string,
+	zipFilePath: string,
 	bucketName: string,
 	folderKey: string
-): Promise<boolean> {
+  ): Promise<boolean> {
 	const s3 = new S3({
-		accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-		secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-		region: process.env.AWS_REGION,
+	  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+	  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+	  region: process.env.AWS_REGION,
 	});
-
+  
 	try {
-		// Clear the folder in S3 before uploading new files
-		await clearS3Folder(bucketName, folderKey, s3);
-
-		// Decode Base64 string into a Buffer
-		const zipFileBuffer = Buffer.from(zipFileBase64, "base64");
-
-		// Create a readable stream from the Buffer
-		const zipStream = new stream.PassThrough();
-		zipStream.end(zipFileBuffer);
-
-		// Parse and extract the zip file
-		const extractedFiles: Promise<any>[] = [];
-		await new Promise<void>((resolve, reject) => {
-			zipStream
-			.pipe(unzipper.Parse())
-			.on("entry", (entry: unzipper.Entry) => {
-				const fileName = entry.path;
-				const fullKey = `${folderKey}${fileName}`; // S3 key for the uploaded file
-
-				if (entry.type === "File") {
-					// Upload each file to S3
-					const uploadPromise = s3
-					.upload({
-						Bucket: bucketName,
-						Key: fullKey,
-						Body: entry,
-					})
-					.promise();
-
-					extractedFiles.push(uploadPromise);
-				} else {
-					entry.autodrain(); // Skip directories
-				}
-			})
-			.on("close", () => resolve())
-			.on("error", (err: Error) => reject(err));
-		});
-
-		// Wait for all uploads to complete
-		await Promise.all(extractedFiles);
-
-
-		return true;
+	  // Clear the folder in S3 before uploading new files
+	  await clearS3Folder(bucketName, folderKey, s3);
+  
+	  // Create a readable stream from the zip file
+	  const zipStream = fs.createReadStream(zipFilePath);
+  
+	  // Parse and extract the zip file
+	  const extractedFiles: Promise<any>[] = [];
+	  await new Promise<void>((resolve, reject) => {
+		zipStream
+		  .pipe(unzipper.Parse())
+		  .on('entry', (entry: unzipper.Entry) => {
+			const fileName = entry.path;
+			const fullKey = `${folderKey}${fileName}`; // S3 key for the uploaded file
+  
+			if (entry.type === 'File') {
+			  // Upload each file to S3
+			  const uploadPromise = s3
+				.upload({
+				  Bucket: bucketName,
+				  Key: fullKey,
+				  Body: entry,
+				})
+				.promise();
+  
+			  extractedFiles.push(uploadPromise);
+			} else {
+			  entry.autodrain(); // Skip directories
+			}
+		  })
+		  .on('close', () => resolve())
+		  .on('error', (err: Error) => reject(err));
+	  });
+  
+	  // Wait for all uploads to complete
+	  await Promise.all(extractedFiles);
+  
+	  return true;
 	} catch (error) {
-		console.error("An error occurred while uploading unzipped contents to S3:", error);
-		return false;
+	  console.error('An error occurred while uploading unzipped contents to S3:', error);
+	  return false;
 	}
-}
-
+  }
