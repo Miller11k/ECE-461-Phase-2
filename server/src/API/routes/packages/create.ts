@@ -1,10 +1,4 @@
-/**
- * @module routes/package
- * Handles the `/package` endpoint (POST) for uploading or ingesting new packages.
- */
-
-import express, { Router } from 'express';
-import type { Request, Response } from 'express';
+import { Request, Response, Router } from 'express';
 import { userDBClient, packagesDBClient, packageDB } from '../../config/dbConfig.js';
 import { decodeAuthenticationToken } from '../../helpers/jwtHelper.js';
 import { generatePackageID } from '../../helpers/packageIDHelper.js';
@@ -39,39 +33,6 @@ const router = Router();
  * This endpoint allows authenticated users to upload or ingest a new package.
  * It accepts either 'Content' (Base64-encoded zip file) or 'URL' to a GitHub repository in the request body.
  * The package is processed and stored, and metadata is returned.
- * 
- * @example
- * // Request body with Content:
- * {
- *   "Name": "example-package",
- *   "Content": "<Base64-encoded zip file content>"
- * }
- * 
- * @example
- * // Request body with URL:
- * {
- *   "URL": "https://github.com/username/repository"
- * }
- * 
- * @example
- * // Successful response:
- * {
- *   "metadata": {
- *     "Name": "example-package",
- *     "Version": "1.0.0",
- *     "ID": "123e4567-e89b-12d3-a456-426614174000"
- *   },
- *   "data": {
- *     "Content": "<Base64-encoded content>"
- *     // or "URL": "https://github.com/username/repository"
- *   }
- * }
- * 
- * @example
- * // Error response (missing Content and URL):
- * {
- *   "error": "Either 'Content' or 'URL' must be provided."
- * }
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
@@ -108,8 +69,8 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
-    // Extract 'Content', 'URL', and 'Name' from the request body
-    const { Content, URL, Name } = req.body;
+    // Extract 'Content', 'URL', 'Name', and other package details from the request body
+    const { Content, URL, Name, sizeMb, isInternal } = req.body;
 
     // Validate the request body
     if (!Content && !URL) {
@@ -225,10 +186,10 @@ router.post('/', async (req: Request, res: Response) => {
       fs.unlinkSync(tempZipPath);
     }
 
-    // Save package metadata to database
+    // Insert the new package into the database
     await packagesDBClient.query(
-      `INSERT INTO ${packageDB} ("ID", "Name", "Version", "repo_link", "is_internal", "Content")
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO ${packageDB} ("ID", "Name", "Version", "repo_link", "is_internal", "Content", "size_mb")
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
         packageID,
         packageName,
@@ -236,6 +197,7 @@ router.post('/', async (req: Request, res: Response) => {
         URL || 'ContentUpload',
         !!Content,
         `s3://${process.env.S3_PERMANENT_BUCKET_NAME}/${s3FolderKey}`,
+        sizeMb || 0,
       ]
     );
 
