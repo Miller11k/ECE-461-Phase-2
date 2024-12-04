@@ -22,6 +22,12 @@ import { NetScoreTest } from './netScore.js';
 
 import {getPackageVersion} from './getPackageVersion.js';
 // Additions for writing to the database
+import { generatePackageID } from '../API/helpers/packageIDHelper.js';
+import { convertZipToBase64 } from '../API/helpers/zipHelper.js';
+import { uploadUnzippedToS3, handleDuplicateAndUpload } from '../API/helpers/s3Helper.js';
+import { getJWTSecret } from '../API/helpers/secretsHelper.js';
+
+
 import pkg from 'pg';
 import { S3Client, HeadObjectCommand, GetObjectCommand, PutObjectCommand, GetBucketLoggingCommand } from "@aws-sdk/client-s3";
 // import { console } from 'inspector';
@@ -32,9 +38,17 @@ const { Pool } = pkg;
 
 const PERMANENT_BUCKET = process.env.S3_BUCKET_NAME;
 const REGION = process.env.AWS_REGION;
+const packageDbTable = process.env.PACKAGE_DB_TABLE;
+const metricsDbTable = process.env.METRICS_DB_TABLE;
 
 // Validate required environment variables
-if (!PERMANENT_BUCKET || !REGION || !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+if (!metricsDbTable || !packageDbTable || !PERMANENT_BUCKET || !REGION || !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+    if (!metricsDbTable) {
+        console.log("Missing environment variable: metricsDbTable");
+    } 
+    if (!packageDbTable) {
+        console.log("Missing environment variable: PackageDBtable");
+    }  
     if (!PERMANENT_BUCKET) {
         console.log("Missing environment variable: PERMANENT_BUCKET");
     }
@@ -54,15 +68,14 @@ if (!PERMANENT_BUCKET || !REGION || !process.env.AWS_ACCESS_KEY_ID || !process.e
 
 // now we need to add all of the database information in the .env file
 const pool = new Pool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: Number(process.env.DB_PORT), 
+    host: process.env.METRICS_DB_HOST,
+    user: process.env.METRICS_DB_USER,
+    password: process.env.METRICS_DB_PASSWORD,
+    database: process.env.METRICS_DB_NAME,
+    port: Number(process.env.METRICS_DB_PORT),
     ssl: {
-        rejectUnauthorized: false,
-        ca: process.env.DB_SSL_CA
-    }
+        rejectUnauthorized: false, 
+    },
 });
 
 // Check environment variables
@@ -82,28 +95,32 @@ const s3Client = new S3Client({
 
 
 
+function generateS3Link(packageName: string, version: string): string {
+    const bucketName = PERMANENT_BUCKET; // Replace with your bucket name if needed
+    return `s3://${bucketName}/${encodeURIComponent(packageName)}/${encodeURIComponent(version)}/`;
+}
 
 function getS3Key(packageName: string, version: string): string {
-    return `${packageName}/${version}/Package.zip`;
+    return `${packageName}/${version}/`;
 }
 
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 
-async function deletePackageFromS3(packageName: string, version: string): Promise<void> {
-    const s3Key = `${packageName}/${version}/Package.zip`; // Adjust key as needed
-    const command = new DeleteObjectCommand({
-        Bucket: PERMANENT_BUCKET,
-        Key: s3Key,
-    });
+// async function deletePackageFromS3(packageName: string, version: string): Promise<void> {
+//     const s3Key = `${packageName}/${version}/Package.zip`; // Adjust key as needed
+//     const command = new DeleteObjectCommand({
+//         Bucket: PERMANENT_BUCKET,
+//         Key: s3Key,
+//     });
 
-    try {
-        await s3Client.send(command);
-        console.log(`Deleted ${s3Key} from S3.`);
-    } catch (error) {
-        console.error(`Error deleting ${s3Key} from S3:`, error);
-        throw error;
-    }
-}
+//     try {
+//         await s3Client.send(command);
+//         console.log(`Deleted ${s3Key} from S3.`);
+//     } catch (error) {
+//         console.error(`Error deleting ${s3Key} from S3:`, error);
+//         throw error;
+//     }
+// }
 
 
 
@@ -115,17 +132,17 @@ async function deletePackageFromS3(packageName: string, version: string): Promis
  */
 async function uploadPackageToS3(localPath: string, packageName: string, version: string): Promise<string> {
     const s3Key = getS3Key(packageName, version);
+    const s3Bucket = PERMANENT_BUCKET || (() => {
+        throw new Error('PERMANENT_BUCKET environment variable is not set');
+    })();
+    
 
     console.log(`Uploading package to S3 at ${s3Key}...`);
 
+
     try {
-        const fileStream = fs.createReadStream(localPath);
-        const command = new PutObjectCommand({
-            Bucket: PERMANENT_BUCKET,
-            Key: s3Key,
-            Body: fileStream
-        });
-        await s3Client.send(command);
+        const base64package = await convertZipToBase64(localPath);
+        const upload = await uploadUnzippedToS3(base64package,s3Bucket,s3Key);
 
         console.log(`Package uploaded successfully to S3: ${s3Key}`);
         return s3Key; // Return the S3 key  to put in the storage
@@ -135,33 +152,36 @@ async function uploadPackageToS3(localPath: string, packageName: string, version
     }
 }
 
+
+
+
 /**
  * Checks if a package already exists in the S3 bucket at the structured location.
  * @param {string} packageName - The name of the package.
  * @param {string} version - The version of the package.
  * @returns {Promise<boolean>} - Whether the package exists.
  */
-async function doesPackageExistInS3(packageName: string, version: string): Promise<boolean> {
-    const s3Key = getS3Key(packageName, version);
+// async function doesPackageExistInS3(packageName: string, version: string): Promise<boolean> {
+//     const s3Key = getS3Key(packageName, version);
 
-    try {
-        const command = new HeadObjectCommand({
-            Bucket: PERMANENT_BUCKET,
-            Key: s3Key
-        });
-        await s3Client.send(command);
+//     try {
+//         const command = new HeadObjectCommand({
+//             Bucket: PERMANENT_BUCKET,
+//             Key: s3Key
+//         });
+//         await s3Client.send(command);
 
-        console.log(`Package already exists in S3 at ${s3Key}.`);
-        return true;
-    } catch (error: any) {
-        if (error.name === 'NotFound') {
-            console.log(`Package does not exist in S3 at ${s3Key}.`);
-            return false;
-        }
-        console.error(`Error checking for package in S3:`, error);
-        throw error;
-    }
-}
+//         console.log(`Package already exists in S3 at ${s3Key}.`);
+//         return true;
+//     } catch (error: any) {
+//         if (error.name === 'NotFound') {
+//             console.log(`Package does not exist in S3 at ${s3Key}.`);
+//             return false;
+//         }
+//         console.error(`Error checking for package in S3:`, error);
+//         throw error;
+//     }
+// }
 
 
 
@@ -338,7 +358,7 @@ async function processUrls(filePath: string[]): Promise<void> {
 
         const netScore = new NetScore(url[0], url[1]);
         const packageName = extractPackageName(netScore.NativeURL);
-        const tempDownloadPath = `/${packageName}/Package.zip`;
+       
 
         // Extract owner and repo from the GitHub URL
         const ownerRepo = new URL(netScore.NativeURL).pathname.split('/').filter(Boolean);
@@ -347,23 +367,19 @@ async function processUrls(filePath: string[]): Promise<void> {
 
         // Get the package version
         const version = await getPackageVersion(owner, repo);
+        const tempDownloadPath = `./${packageName}/${version}/Package.zip`;
+        console.log(tempDownloadPath);
 
         // // Check if the package already exists in S3
         // const packageExists = await doesPackageExistInS3(packageName, version);
-        // if (packageExists) {
-        //     console.log(`Skipping upload for ${packageName} version ${version} as it already exists in S3.`);
-        //     try {
-        //         await deletePackageFromS3(packageName, version);
-        //         console.log(`Successfully deleted existing package ${packageName} version ${version} from S3.`);
+        const base64package = await convertZipToBase64(tempDownloadPath);
+        const s3Bucket = PERMANENT_BUCKET || (() => { throw new Error('PERMANENT_BUCKET environment variable is not set');
+        })();
+        const packageExists = await handleDuplicateAndUpload(packageName, version,base64package,s3Bucket);
 
-        //         const s3Key = await uploadPackageToS3(tempDownloadPath, packageName, version);
-        //         console.log(`Successfully uploaded ${packageName} version ${version} to S3 with key: ${s3Key}`);
-        //         continue;
-        //     } catch (error) {
-        //         console.error(`Error processing package ${packageName} version ${version}:`, error);
-        //         continue;
-        //     }
-        // }
+        if(packageExists){
+            continue;
+        }
 
         // Evaluate the metrics
         const result = await netScore.evaluate();
@@ -375,88 +391,124 @@ async function processUrls(filePath: string[]): Promise<void> {
             continue;
         }
 
-        // // Upload package to S3
-        // try {
-        //     const s3Key = await uploadPackageToS3(tempDownloadPath, packageName, version);
-        // } catch (error) {
-        //     console.error(`Error processing package ${packageName} version ${version}:`, error);
-        //     continue;
-        // }
+        // Upload package to S3
+        try {
+            const s3Key = await uploadPackageToS3(tempDownloadPath, packageName, version);
+        } catch (error) {
+            console.error(`Error processing package ${packageName} version ${version}:`, error);
+            continue;
+        }
 
-        // // Generate S3 key
-        // const S3Key = getS3Key(packageName, version);
+        // Generate S3 key
+        const S3link = generateS3Link(packageName, version);
 
-        // // Insert package details into the database
-        // const insertPackageQuery = `
-        // INSERT INTO packages (
-        //     package_name, repo_link, is_internal, package_version, s3_link, net_score, final_metric, final_metric_latency
-        // )
-        // VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        // ON CONFLICT (repo_link) 
-        // DO UPDATE SET 
-        //     net_score = EXCLUDED.net_score,
-        //     final_metric_latency = EXCLUDED.final_metric_latency
-        // RETURNING package_id;
-        // `;
+    
+        // Insert package details into the database
+        const insertPackageQuery = `
+            INSERT INTO ${packageDbTable} (
+            "ID",
+            "Name",
+            "Version",
+            "Content",
+            repo_link,
+            is_internal,
+            debloat
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT (repo_link, "Version")
+        DO UPDATE SET 
+            "Content" = EXCLUDED."Content",
+            debloat = EXCLUDED.debloat;
 
-        // const packageValues = [
-        //     packageName,
-        //     netScore.NativeURL,
-        //     false,
-        //     version,
-        //     S3Key,
-        //     netScore.netScore,
-        //     null,
-        //     netScore.responseTime,
-        // ];
+        `;
 
-        // let packageId;
-        // try {
-        //     const packageRes = await pool.query(insertPackageQuery, packageValues);
-        //     packageId = packageRes.rows[0].package_id;
-        //     logger.info(`Package inserted with package_id: ${packageId}`);
-        // } catch (err) {
-        //     if (err instanceof Error) {
-        //         logger.error(`Error inserting package: ${err.message}`);
-        //     } else {
-        //         logger.error('Unexpected error inserting package');
-        //     }
-        //     continue;
-        // }
+        const packageId = generatePackageID(packageName, version);
 
-        // // Insert metrics into the database
-        // const insertMetricsQuery = `
-        // INSERT INTO metrics (package_id, ramp_up_time, bus_factor, correctness, license_compatibility, maintainability)
-        // VALUES ($1, $2, $3, $4, $5, $6)
-        // ON CONFLICT (package_id) 
-        // DO UPDATE SET 
-        //     ramp_up_time = EXCLUDED.ramp_up_time,
-        //     bus_factor = EXCLUDED.bus_factor,
-        //     correctness = EXCLUDED.correctness,
-        //     license_compatibility = EXCLUDED.license_compatibility,
-        //     maintainability = EXCLUDED.maintainability
-        // RETURNING metric_id;
-        // `;
+        
+        try {
+    
+            
+        
+            const packageValues = [
+                packageId,         // Unique package ID
+                packageName,       // Name of the package
+                version,           // Version of the package
+                S3link,           // S3 bucket location
+                netScore.NativeURL, // Repo link
+                false,             // is_internal flag  
+                null,         // debloat
+            ];
+        
+            await pool.query(insertPackageQuery, packageValues);
+            console.log(`Package successfully inserted or updated with ID: ${packageId}`);
+        } catch (err) {
+            if (err instanceof Error) {
+                console.log(`Error inserting or updating package: ${err.message}`);
+            } else {
+                console.log('Unexpected error inserting or updating package');
+            }
+        }
+        
 
-        // const metricsValues = [
-        //     packageId,
-        //     netScore.rampUp.rampUp,
-        //     netScore.busFactor.busFactor,
-        //     netScore.correctness.correctness,
-        //     netScore.license.license,
-        //     netScore.maintainability.maintainability,
-        // ];
+      // Insert metrics into the database
+        const insertMetricsQuery = `
+        INSERT INTO ${metricsDbTable} (
+            package_id, rampup, busfactor, correctness, licensescore, responsivemaintainer, netscore, netscorelatency,
+            rampuplatency, busfactorlatency, correctnesslatency, licensescorelatency, responsivemaintainerlatency, 
+            goodpinningpractice, goodpinningpracticelatency, pullrequest, pullrequestlatency
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+        ON CONFLICT (package_id) 
+        DO UPDATE SET 
+            rampup = EXCLUDED.rampup,
+            busfactor = EXCLUDED.busfactor,
+            correctness = EXCLUDED.correctness,
+            licensescore = EXCLUDED.licensescore,
+            responsivemaintainer = EXCLUDED.responsivemaintainer,
+            netscore = EXCLUDED.netscore,
+            netscorelatency = EXCLUDED.netscorelatency,
+            rampuplatency = EXCLUDED.rampuplatency,
+            busfactorlatency = EXCLUDED.busfactorlatency,
+            correctnesslatency = EXCLUDED.correctnesslatency,
+            licensescorelatency = EXCLUDED.licensescorelatency,
+            responsivemaintainerlatency = EXCLUDED.responsivemaintainerlatency,
+            goodpinningpractice = EXCLUDED.goodpinningpractice,
+            goodpinningpracticelatency = EXCLUDED.goodpinningpracticelatency,
+            pullrequest = EXCLUDED.pullrequest,
+            pullrequestlatency = EXCLUDED.pullrequestlatency
+        RETURNING metric_id;
+        `;
 
-        // try {
-        //     const metricsRes = await pool.query(insertMetricsQuery, metricsValues);
-        //     logger.info(`Metrics inserted with metric_id: ${metricsRes.rows[0].metric_id}`);
-        // } catch (err) {
-        //     if (err instanceof Error) {
-        //         logger.error(`Error inserting metrics: ${err.message}`);
-        //     } else {
-        //         logger.error('Unexpected error inserting metrics');
-        //     }
-        // }
+        const metricsValues = [
+            packageId,
+            netScore.rampUp.rampUp,
+            netScore.busFactor.busFactor,
+            netScore.correctness.correctness,
+            netScore.license.license,
+            netScore.maintainability.maintainability,
+            netScore.netScore,
+            netScore.responseTime,
+            netScore.rampUp.responseTime,
+            netScore.busFactor.responseTime,
+            netScore.correctness.responseTime,
+            netScore.license.responseTime,
+            netScore.maintainability.responseTime,
+            netScore.DependencyPinning.dependencyPinning,
+            netScore.DependencyPinning.responseTime,
+            netScore.CodeReviewFraction.codeReviewFraction,
+            netScore.CodeReviewFraction.responseTime,
+        ];
+
+        try {
+            const metricsRes = await pool.query(insertMetricsQuery, metricsValues);
+            console.log(`Metrics inserted with metric_id: ${metricsRes.rows[0].metric_id}`);
+        } catch (err) {
+            if (err instanceof Error) {
+                console.log(`Error inserting metrics: ${err.message}`);
+            } else {
+                console.log('Unexpected error inserting metrics');
+            }
+        }
     }
 }
 

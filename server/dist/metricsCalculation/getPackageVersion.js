@@ -1,5 +1,4 @@
 import { Octokit } from "@octokit/rest";
-import * as fs from "fs/promises";
 // Initialize Octokit for GitHub API
 const octokit = new Octokit({
     auth: process.env.GITHUB_TOKEN, // Use your GitHub token for authentication
@@ -26,11 +25,6 @@ export async function getPackageVersion(owner, repo) {
         // Decode base64 content
         const packageJsonContent = Buffer.from(fileContent.content, "base64").toString("utf-8");
         const packageJson = JSON.parse(packageJsonContent);
-        // Save the package.json to a local file for debugging or verification
-        const savePath = `./output/${owner}-${repo}-package.json`;
-        await fs.mkdir("./output", { recursive: true });
-        await fs.writeFile(savePath, packageJsonContent, "utf-8");
-        console.info(`Saved package.json to ${savePath}`);
         // Return the version from package.json
         return packageJson.version;
     }

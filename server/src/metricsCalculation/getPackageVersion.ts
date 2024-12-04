@@ -31,11 +31,7 @@ export async function getPackageVersion(owner: string, repo: string): Promise<st
         const packageJsonContent = Buffer.from(fileContent.content, "base64").toString("utf-8");
         const packageJson = JSON.parse(packageJsonContent);
 
-        // Save the package.json to a local file for debugging or verification
-        const savePath = `./output/${owner}-${repo}-package.json`;
-        await fs.mkdir("./output", { recursive: true });
-        await fs.writeFile(savePath, packageJsonContent, "utf-8");
-        console.info(`Saved package.json to ${savePath}`);
+
 
         // Return the version from package.json
         return packageJson.version ;

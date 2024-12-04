@@ -1,5 +1,4 @@
 import { Metrics, logger } from "./Metrics.js";
-import * as fs from 'fs/promises';
 /**
  * @class DependencyPinning
  * @brief A class for calculating and evaluating the dependency pinning score of a repository.
@@ -50,10 +49,6 @@ export class DependencyPinning extends Metrics {
             // const packageJson = JSON.parse(packageJsonContent);
             // Save the package.json to a local file for verification
             // just for testing
-            const savePath = `./output/${owner}-${repo}-package.json`; // Save in an 'output' directory
-            await fs.mkdir('./output', { recursive: true });
-            await fs.writeFile(savePath, packageJsonContent, "utf-8");
-            logger.info(`Saved package.json to ${savePath}`);
             const packageJson = JSON.parse(packageJsonContent);
             // Return dependencies or an empty object if none exist
             return packageJson.dependencies || {};

@@ -57,10 +57,6 @@ export class DependencyPinning extends Metrics {
 
             // Save the package.json to a local file for verification
             // just for testing
-            const savePath = `./output/${owner}-${repo}-package.json`; // Save in an 'output' directory
-            await fs.mkdir('./output', { recursive: true });
-            await fs.writeFile(savePath, packageJsonContent, "utf-8");
-            logger.info(`Saved package.json to ${savePath}`);
 
              const packageJson = JSON.parse(packageJsonContent);
 

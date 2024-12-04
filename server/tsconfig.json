@@ -100,8 +100,30 @@
   "include": [
     "src/**/*.ts",
     "types/**/*.d.ts"
-, "src/metricsCalculation/S3Connect.ts"  ],
+, "src/metricsCalculation/S3Connect.ts", "test/rate.test.ts"  ],
   "exclude": [
     "src/metricsCalculation/S3Connect.ts"
   ]
 }
+
+// {
+//   "compilerOptions": {
+//     "esModuleInterop": true,
+//     "moduleResolution": "node",
+//     "target": "ESNext",
+//     "module": "ESNext",
+//     "rootDir": "./src",
+//     "outDir": "./dist",
+//     "skipLibCheck": true
+//   }
+// ,
+//   "include": [
+//     "src/**/*.ts",                    // Include all TypeScript files in src/
+//     "types/**/*.d.ts",                // Include type declaration files
+//     "test/**/*.ts"                    // Include test files
+//   ],
+//   "exclude": [
+//     "node_modules",                   // Exclude dependencies
+//     "dist"                            // Exclude compiled files
+//   ]
+// }
