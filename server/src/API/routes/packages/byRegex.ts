@@ -1,6 +1,6 @@
 import express, { Router } from 'express';
 import type { Request, Response } from 'express';
-import { verifyAuthenticationToken } from '../../helpers/jwtHelper.js';
+import { decodeAuthenticationToken } from '../../helpers/jwtHelper.js';
 import { packagesDBClient, packageDB, userDBClient } from '../../config/dbConfig.js';
 import { fetchReadmeMatches } from '../../helpers/s3Helper.js';
 
@@ -18,17 +18,18 @@ router.post('/byRegEx', async (req: Request, res: Response) => {
       return;
     }
 
-    const x_authorization = authHeader.toLowerCase().startsWith('bearer ')
-      ? authHeader.slice('bearer '.length).trim()
-      : authHeader.trim();
+    // Extract the token from the header, removing the "Bearer " prefix if present
+    const x_authorization = authHeader.toLowerCase().startsWith("bearer ")
+    ? authHeader.slice("bearer ".length).trim()
+    : authHeader.trim();
 
-    console.log('Extracted Bearer Token:', x_authorization);
+    const decoded_jwt = await decodeAuthenticationToken(x_authorization);
 
-    const decoded_jwt = await verifyAuthenticationToken(x_authorization);
 
+    // If no user matches the token, respond with 403
     if (!decoded_jwt) {
-      res.status(403).json({ success: false, message: 'Authentication failed.' });
-      return;
+        res.status(403).json({ success: false, message: 'Authentication failed.' });
+        return;
     }
 
     const username = decoded_jwt.username;

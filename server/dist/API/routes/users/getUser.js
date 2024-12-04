@@ -1,12 +1,47 @@
+/**
+ * @module RetrieveUserDetailsRoute
+ * Handles the endpoint for retrieving user details based on an authentication token.
+ */
 import { Router } from 'express';
 import { decodeAuthenticationToken } from '../../helpers/jwtHelper.js';
 // Create a new router instance to define and group related routes
 const router = Router();
 /**
- * Endpoint to retrieve user details based on a token.
+ * POST `/` - Retrieves user details based on a provided authentication token.
+ *
  * @route POST /
- * @param req.body.token {string} Authentication token.
- * @returns {object} Success status with the user's details or an error message.
+ * @group Users - Operations related to user management.
+ *
+ * @param {Request} req - The HTTP request object.
+ * @param {string} req.body.token - The authentication token.
+ *
+ * @param {Response} res - The HTTP response object.
+ *
+ * @returns {Object} A JSON response:
+ * - `success: true` and user details (`firstName`, `lastName`, `username`, `isAdmin`) if the token is valid.
+ * - `success: false` and an error message if the token is invalid or missing.
+ *
+ * @example
+ * // Request body:
+ * {
+ *   "token": "Bearer <JWT>"
+ * }
+ *
+ * // Successful response:
+ * {
+ *   "success": true,
+ *   "firstName": "John",
+ *   "lastName": "Doe",
+ *   "username": "johndoe",
+ *   "isAdmin": false
+ * }
+ *
+ * @example
+ * // Error response (invalid token):
+ * {
+ *   "success": false,
+ *   "message": "Invalid token"
+ * }
  */
 router.post('/', async (req, res) => {
     let { token } = req.body; // Get the token from the API request body

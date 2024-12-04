@@ -16,6 +16,25 @@ const { Client } = pkg;
  * - USERS_DB_PORT: User database port (default 5432)
  * @constant {Client}
  */
+
+console.log("User DB Configuration:");
+console.log({
+  host: process.env.USERS_DB_HOST,
+  user: process.env.USERS_DB_USER,
+  database: process.env.USERS_DB_NAME,
+  port: process.env.USERS_DB_PORT || '5432',
+  ssl: { rejectUnauthorized: false },
+});
+
+console.log("Metrics DB Configuration:");
+console.log({
+  host: process.env.METRICS_DB_HOST,
+  user: process.env.METRICS_DB_USER,
+  database: process.env.METRICS_DB_NAME,
+  port: process.env.METRICS_DB_PORT || '5432',
+  ssl: { rejectUnauthorized: false },
+});
+
 const userDBClient = new Client({
   host: process.env.USERS_DB_HOST, // User database host
   user: process.env.USERS_DB_USER, // User database username
@@ -24,7 +43,7 @@ const userDBClient = new Client({
   port: parseInt(process.env.USERS_DB_PORT || '5432', 10), // Default to port 5432 if not provided
   ssl: { rejectUnauthorized: false }, // Allow self-signed certificates
 });
-
+console.log("User DB Client created.");
 /**
  * Fully qualified schema and table name for the employee database.
  * Derived from the following environment variables:
@@ -52,7 +71,7 @@ const packagesDBClient = new Client({
   port: parseInt(process.env.METRICS_DB_PORT || '5432', 10), // Default to port 5432 if not provided
   ssl: { rejectUnauthorized: false }, // Allow self-signed certificates
 });
-
+console.log("Metrics DB Client created.");
 /**
  * Fully qualified schema and table name for the package database.
  * Derived from the following environment variables:
@@ -89,8 +108,13 @@ export const dependenciesDB = `${process.env.METRICS_DB_SCHEMA}.${process.env.DE
  */
 export const connectDatabases = async () => {
   try {
+    console.log("Attempting to connect to User DB...");
     await userDBClient.connect(); // Connect to user database
+    console.log("Connected to User DB successfully.");
+
+    console.log("Attempting to connect to Metrics DB...");
     await packagesDBClient.connect(); // Connect to metrics database
+    console.log("Connected to Metrics DB successfully.");
   } catch (error) {
     if (error instanceof Error) {
       console.error(error.message); // Safely access error.message

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { verifyAuthenticationToken } from '../../helpers/jwtHelper.js';
+import { decodeAuthenticationToken } from '../../helpers/jwtHelper.js';
 import { packagesDBClient, packageDB, userDBClient } from '../../config/dbConfig.js';
 import { fetchReadmeMatches } from '../../helpers/s3Helper.js';
 const router = Router();
@@ -12,11 +12,12 @@ router.post('/byRegEx', async (req, res) => {
             res.status(403).json({ error: 'Invalid or missing X-Authorization header' });
             return;
         }
-        const x_authorization = authHeader.toLowerCase().startsWith('bearer ')
-            ? authHeader.slice('bearer '.length).trim()
+        // Extract the token from the header, removing the "Bearer " prefix if present
+        const x_authorization = authHeader.toLowerCase().startsWith("bearer ")
+            ? authHeader.slice("bearer ".length).trim()
             : authHeader.trim();
-        console.log('Extracted Bearer Token:', x_authorization);
-        const decoded_jwt = await verifyAuthenticationToken(x_authorization);
+        const decoded_jwt = await decodeAuthenticationToken(x_authorization);
+        // If no user matches the token, respond with 403
         if (!decoded_jwt) {
             res.status(403).json({ success: false, message: 'Authentication failed.' });
             return;

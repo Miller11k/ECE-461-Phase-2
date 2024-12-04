@@ -1,3 +1,7 @@
+/**
+ * @module S3Utils
+ * Provides utility functions for interacting with AWS S3, including fetching, zipping, unzipping, and managing files and folders.
+ */
 import AWS from "aws-sdk";
 import archiver from "archiver";
 import unzipper from "unzipper";
@@ -6,9 +10,12 @@ import fs from "fs";
 const { S3 } = AWS;
 /**
  * Fetches the content of a zip file from an S3 bucket and returns it as a Base64 string.
+ *
+ * @async
+ * @function fetchZipFileContent
  * @param {string} bucketName - The name of the S3 bucket.
  * @param {string} fileKey - The key of the file in the S3 bucket.
- * @returns {Promise<string | null>} A promise that resolves to the Base64-encoded content of the file, or null if an error occurs.
+ * @returns {Promise<string | null>} A promise that resolves to the Base64-encoded content of the file, or `null` if an error occurs.
  */
 export async function fetchZipFileContent(bucketName, fileKey) {
     // Create an S3 client without a session token
@@ -40,9 +47,12 @@ export async function fetchZipFileContent(bucketName, fileKey) {
     }
 }
 /**
- * Fetches the content of a zip file from a default S3 bucket (specified in the environment variables) and returns it as a Base64 string.
+ * Fetches the content of a zip file from the default S3 bucket and returns it as a Base64 string.
+ *
+ * @async
+ * @function fetchZip
  * @param {string} fileKey - The key of the file in the S3 bucket.
- * @returns {Promise<string | null>} A promise that resolves to the Base64-encoded content of the file, or null if an error occurs.
+ * @returns {Promise<string | null>} A promise that resolves to the Base64-encoded content of the file, or `null` if an error occurs.
  */
 export async function fetchZip(fileKey) {
     // Create an S3 client without a session token
@@ -316,13 +326,16 @@ async function clearS3Folder(bucketName, folderKey, s3) {
  * @param folderKey - The S3 folder path where the extracted files will be uploaded.
  * @returns A promise that resolves to true if successful, or false if an error occurs.
  */
-export async function uploadUnzippedToS3(zipFilePath, // Now accepts a file path
-bucketName, folderKey) {
-    const s3 = new S3({ /* AWS config */});
+export async function uploadUnzippedToS3(zipFilePath, bucketName, folderKey) {
+    const s3 = new S3({
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        region: process.env.AWS_REGION,
+    });
     try {
         // Clear the folder in S3 before uploading new files
         await clearS3Folder(bucketName, folderKey, s3);
-        // Create a read stream from the zip file
+        // Create a readable stream from the zip file
         const zipStream = fs.createReadStream(zipFilePath);
         // Parse and extract the zip file
         const extractedFiles = [];

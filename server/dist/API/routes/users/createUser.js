@@ -1,17 +1,59 @@
+/**
+ * @module CreateUserRoute
+ * Handles the `/create-user` endpoint for creating a new user.
+ */
 import { Router } from 'express';
 import { createSalt, generatePassword } from '../../helpers/passwordHelper.js';
 import { userDBClient, employeeDB } from '../../config/dbConfig.js';
 // Create a new router instance to define and group related routes
 const router = Router();
 /**
- * Endpoint to create a new user.
+ * POST `/create-user` - Endpoint to create a new user.
+ *
  * @route POST /create-user
- * @param req.body.first_name {string} First name of the user.
- * @param req.body.last_name {string} Last name of the user.
- * @param req.body.username {string} Username for the account.
- * @param req.body.plaintext_password {string} Plaintext password for the account.
- * @param req.body.is_admin {boolean} Admin status of the user.
- * @returns {object} Success or error message.
+ * @group Users - Operations related to user management.
+ *
+ * @param {Request} req - The HTTP request object.
+ * @param {string} req.body.first_name - First name of the user.
+ * @param {string} req.body.last_name - Last name of the user.
+ * @param {string} req.body.username - Username for the account.
+ * @param {string} req.body.plaintext_password - Plaintext password for the account.
+ * @param {boolean} req.body.is_admin - Admin status of the user.
+ *
+ * @param {Response} res - The HTTP response object.
+ *
+ * @returns {Object} A JSON response:
+ * - `success: true` if the user is created successfully.
+ * - `success: false` and an error message if the operation fails.
+ *
+ * @example
+ * // Request body:
+ * {
+ *   "first_name": "John",
+ *   "last_name": "Doe",
+ *   "username": "johndoe",
+ *   "plaintext_password": "securepassword",
+ *   "is_admin": false
+ * }
+ *
+ * // Successful response:
+ * {
+ *   "success": true
+ * }
+ *
+ * @example
+ * // Error response (username already in use):
+ * {
+ *   "success": false,
+ *   "error": "Username already in use"
+ * }
+ *
+ * @example
+ * // Error response (internal server error):
+ * {
+ *   "success": false,
+ *   "error": "Internal server error"
+ * }
  */
 router.post('/', async (req, res) => {
     const { first_name, last_name, username, plaintext_password, is_admin } = req.body; // Get data from API request
