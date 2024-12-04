@@ -17,6 +17,7 @@ const ViewPackage = ({ handleLogout }) => {
   const [zipFile, setZipFile] = useState(null);
   const [packageUrl, setPackageUrl] = useState('');
   const [debloat, setDebloat] = useState(false);
+  const [newVersion, setNewVersion] = useState('');//needed for new version update
 
   const authToken = localStorage.getItem('authToken');
   const apiPort = process.env.REACT_APP_API_PORT || 4010;
@@ -94,7 +95,7 @@ const ViewPackage = ({ handleLogout }) => {
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (file && file.type === 'application/zip') {
+    if (file /*&& file.type === 'application/zip'*/) {
       setZipFile(file);
       setPackageUrl(''); // Clear URL input if file is uploaded
       setError('');
@@ -109,6 +110,10 @@ const ViewPackage = ({ handleLogout }) => {
     setZipFile(null); // Clear file input if URL is entered
     setError('');
   };
+
+  const handleVersionChange = (e) => {
+    setNewVersion(e.target.value);
+  }; 
 
   const toBase64 = (file) =>
     new Promise((resolve, reject) => {
@@ -130,6 +135,12 @@ const ViewPackage = ({ handleLogout }) => {
         setError('Please upload a zip file or provide a valid URL.');
         return;
       }
+
+      //we need a new version 
+      if (!newVersion) {
+        setError('Please provide a new version number.');
+        return;
+      }
     
       try {
         let base64Content = null;
@@ -140,7 +151,7 @@ const ViewPackage = ({ handleLogout }) => {
         const payload = {
           metadata: {
             Name: packageDetails?.metadata?.Name || 'DefaultName',
-            Version: packageDetails?.metadata?.Version || '1.0.0',
+            Version: newVersion.trim() || '1.0.0',
             ID: id,
           },
           data: {
@@ -210,9 +221,21 @@ const ViewPackage = ({ handleLogout }) => {
                 <div className="metrics">
                   <h2>Metrics</h2>
                   <p><strong>Net Score:</strong> {metrics.NetScore}</p>
+                  <p><strong>Net Score Latency:</strong> {metrics.NetScoreLatency}</p>
                   <p><strong>Ramp-Up Score:</strong> {metrics.RampUp}</p>
+                  <p><strong>Ramp-Up Latency:</strong> {metrics.RampUpLatency}</p>
                   <p><strong>Bus Factor:</strong> {metrics.BusFactor}</p>
+                  <p><strong>Bus Factor Latency:</strong> {metrics.BusFactorLatency}</p>
+                  <p><strong>Correctness:</strong> {metrics.Correctness}</p>
+                  <p><strong>Correctness Latency:</strong> {metrics.CorrectnessLatency}</p>
+                  <p><strong>Responsive Maintainer:</strong> {metrics.ResponsiveMaintainer}</p>
+                  <p><strong>Responsive Maintainer Latency:</strong> {metrics.ResponsiveMaintainerLatency}</p>
                   <p><strong>License Score:</strong> {metrics.LicenseScore}</p>
+                  <p><strong>License Score Latency:</strong> {metrics.LicenseScoreLatency}</p>
+                  <p><strong>Good Pinning Practice:</strong> {metrics.GoodPinningPractice}</p>
+                  <p><strong>Good Pinning Practice Latency:</strong> {metrics.GoodPinningPracticeLatency}</p>
+                  <p><strong>Pull Request:</strong> {metrics.PullRequest}</p>
+                  <p><strong>Pull Request Latency:</strong> {metrics.PullRequestLatency}</p>
                 </div>
               )}
 
@@ -246,6 +269,15 @@ const ViewPackage = ({ handleLogout }) => {
                       value={packageUrl}
                       onChange={handleUrlChange}
                       placeholder="Enter package URL"
+                    />
+                  </label>
+                  <label>
+                    New Version:
+                    <input
+                      type="text"
+                      value={newVersion}
+                      onChange={handleVersionChange}
+                      placeholder="Enter new version"
                     />
                   </label>
                   <div className="form-group">

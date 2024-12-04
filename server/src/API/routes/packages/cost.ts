@@ -33,103 +33,118 @@ router.get('/:id/cost', async (req: Request, res: Response) => {
             : authHeader.trim();
 
         // Verify user authentication using the provided token and retrieve the salt
-        const result = await userDBClient.query(
-            `SELECT "salt" FROM ${employeeDB} WHERE "X-Authorization" = $1`,
-            [x_authorization]
-        );
+        // const result = await userDBClient.query(
+        //     `SELECT "salt" FROM ${employeeDB} WHERE "X-Authorization" = $1`,
+        //     [x_authorization]
+        // );
 
-        // Check if JWT is valid
-        if (result.rows.length === 0) {
-            res.status(403).json({ success: false, message: 'Authentication failed.' });
-            return;
-        }
+        // // Check if JWT is valid
+        // if (result.rows.length === 0) {
+        //     res.status(403).json({ success: false, message: 'Authentication failed.' });
+        //     return;
+        // }
 
-        // Extract the salt from the query result
-        const salt = result.rows[0].salt;
-        // const decoded_jwt = decodeAuthenticationToken(x_authorization, salt);
-        const decoded_jwt = decodeAuthenticationToken(x_authorization);
+        // // Extract the salt from the query result
+        // const salt = result.rows[0].salt;
+        // // const decoded_jwt = decodeAuthenticationToken(x_authorization, salt);
+        // const decoded_jwt = decodeAuthenticationToken(x_authorization);
 
-        if (!decoded_jwt) {
-            res.status(403).json({ success: false, message: 'Authentication failed.' });
-            return;
-        }
+        // if (!decoded_jwt) {
+        //     res.status(403).json({ success: false, message: 'Authentication failed.' });
+        //     return;
+        // }
 
-        // Extract package ID from request params
-        const packageId = req.params.id;
-        if (!packageId) {
-            res.status(400).json({ error: "Package ID is required." });
-            return;
-        }
+        // // Extract package ID from request params
+        // const packageId = req.params.id;
+        // if (!packageId) {
+        //     res.status(400).json({ error: "Package ID is required." });
+        //     return;
+        // }
 
-        // Query to get package standalone size
-        const packageResult = await packagesDBClient.query(
-            `SELECT package_name, version, file_location FROM ${packageDB} WHERE package_id = $1`,
-            [packageId]
-        );
+        // // Query to get package standalone size
+        // const packageResult = await packagesDBClient.query(
+        //     `SELECT package_name, version, file_location FROM ${packageDB} WHERE package_id = $1`,
+        //     [packageId]
+        // );
 
-        if (packageResult.rows.length === 0) {
-            res.status(404).json({ error: "Package not found." });
-            return;
-        }
+        // if (packageResult.rows.length === 0) {
+        //     res.status(404).json({ error: "Package not found." });
+        //     return;
+        // }
 
-        const { package_name, version, file_location } = packageResult.rows[0];
+        // const { package_name, version, file_location } = packageResult.rows[0];
 
-        // Calculate standalone cost (size of the package zip file)
-        let standaloneCost = 0;
-        if (file_location) {
-            // Assuming we have a function to get the size of the file
-            standaloneCost = await getFileSize(file_location); 
-        }
+        // // Calculate standalone cost (size of the package zip file)
+        // let standaloneCost = 0;
+        // if (file_location) {
+        //     // Assuming we have a function to get the size of the file
+        //     standaloneCost = await getFileSize(file_location); 
+        // }
 
-        // Query to get dependencies
-        const dependenciesResult = await packagesDBClient.query(
-            `SELECT dependency_url FROM ${dependenciesDB} WHERE package_id = $1`,
-            [packageId]
-        );
+        // // Query to get dependencies
+        // const dependenciesResult = await packagesDBClient.query(
+        //     `SELECT dependency_url FROM ${dependenciesDB} WHERE package_id = $1`,
+        //     [packageId]
+        // );
 
-        // Calculate the total cost including transitive dependencies
-        let totalCost = standaloneCost;
-        const visitedPackages = new Set();
+        // // Calculate the total cost including transitive dependencies
+        // let totalCost = standaloneCost;
+        // const visitedPackages = new Set();
 
-        async function calculateDependencyCost(dependencyUrl: string): Promise<number> {
-            if (visitedPackages.has(dependencyUrl)) {
-                return 0; // Prevent infinite loops due to circular dependencies
-            }
-            visitedPackages.add(dependencyUrl);
+        // async function calculateDependencyCost(dependencyUrl: string): Promise<number> {
+        //     if (visitedPackages.has(dependencyUrl)) {
+        //         return 0; // Prevent infinite loops due to circular dependencies
+        //     }
+        //     visitedPackages.add(dependencyUrl);
 
-            const depResult = await packagesDBClient.query(
-                `SELECT package_id, file_location FROM ${packageDB} WHERE repo_link = $1`,
-                [dependencyUrl]
-            );
+        //     const depResult = await packagesDBClient.query(
+        //         `SELECT package_id, file_location FROM ${packageDB} WHERE repo_link = $1`,
+        //         [dependencyUrl]
+        //     );
 
-            if (depResult.rows.length === 0) {
-                return 0; // Dependency not found in the registry
-            }
+        //     if (depResult.rows.length === 0) {
+        //         return 0; // Dependency not found in the registry
+        //     }
 
-            const { package_id, file_location } = depResult.rows[0];
-            let dependencyCost = 0;
+        //     const { package_id, file_location } = depResult.rows[0];
+        //     let dependencyCost = 0;
 
-            if (file_location) {
-                dependencyCost = await getFileSize(file_location);
-            }
+        //     if (file_location) {
+        //         dependencyCost = await getFileSize(file_location);
+        //     }
 
-            // Recursively calculate the cost of sub-dependencies
-            const subDependenciesResult = await packagesDBClient.query(
-                `SELECT dependency_url FROM ${dependenciesDB} WHERE package_id = $1`,
-                [package_id]
-            );
+        //     // Recursively calculate the cost of sub-dependencies
+        //     const subDependenciesResult = await packagesDBClient.query(
+        //         `SELECT dependency_url FROM ${dependenciesDB} WHERE package_id = $1`,
+        //         [package_id]
+        //     );
 
-            for (const subDep of subDependenciesResult.rows) {
-                dependencyCost += await calculateDependencyCost(subDep.dependency_url);
-            }
+        //     for (const subDep of subDependenciesResult.rows) {
+        //         dependencyCost += await calculateDependencyCost(subDep.dependency_url);
+        //     }
 
-            return dependencyCost;
-        }
+        //     return dependencyCost;
+        // }
 
-        for (const dep of dependenciesResult.rows) {
-            totalCost += await calculateDependencyCost(dep.dependency_url);
-        }
+        // for (const dep of dependenciesResult.rows) {
+        //     totalCost += await calculateDependencyCost(dep.dependency_url);
+        // }
 
+        // res.status(200).json({
+        //     packageId,
+        //     package_name,
+        //     version,
+        //     standaloneCost,
+        //     totalCost
+        // });
+        // return;
+
+        const packageId = 'temp';
+        const package_name=  'temp';      
+        const version =        'temp';
+        const standaloneCost ='temp';
+        const totalCost ='temp';
+        
         res.status(200).json({
             packageId,
             package_name,

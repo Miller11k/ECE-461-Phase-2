@@ -364,3 +364,71 @@ export async function uploadUnzippedToS3(zipFileBase64, bucketName, folderKey) {
         return false;
     }
 }
+export async function handleDuplicateAndUpload(packageName, version, zipFileBase64, bucketName) {
+    const s3 = new S3({
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        region: process.env.AWS_REGION,
+    });
+    const s3Key = `${packageName}/${version}/`;
+    try {
+        // Check if the package exists in S3
+        const headResponse = await s3
+            .headObject({
+            Bucket: bucketName,
+            Key: s3Key,
+        })
+            .promise()
+            .catch((err) => {
+            if (err.code !== "NotFound")
+                throw err; // Ignore 'NotFound' errors, as it's expected if the key doesn't exist
+        });
+        if (headResponse) {
+            console.log(`Duplicate found: Clearing existing folder ${s3Key} in S3.`);
+            await clearS3Folder(bucketName, s3Key, s3);
+        }
+        else {
+            console.log(`No duplicate found: Proceeding with upload.`);
+            return false;
+        }
+        // Decode Base64 string into a Buffer
+        const zipFileBuffer = Buffer.from(zipFileBase64, "base64");
+        // Create a readable stream from the Buffer
+        const zipStream = new stream.PassThrough();
+        zipStream.end(zipFileBuffer);
+        // Parse and extract the zip file
+        const extractedFiles = [];
+        await new Promise((resolve, reject) => {
+            zipStream
+                .pipe(unzipper.Parse())
+                .on("entry", (entry) => {
+                const fileName = entry.path;
+                const fullKey = `${s3Key}${fileName}`; // S3 key for the uploaded file
+                if (entry.type === "File") {
+                    // Upload each file to S3
+                    const uploadPromise = s3
+                        .upload({
+                        Bucket: bucketName,
+                        Key: fullKey,
+                        Body: entry,
+                    })
+                        .promise();
+                    extractedFiles.push(uploadPromise);
+                }
+                else {
+                    entry.autodrain(); // Skip directories
+                }
+            })
+                .on("close", () => resolve())
+                .on("error", (err) => reject(err));
+        });
+        // Wait for all uploads to complete
+        await Promise.all(extractedFiles);
+        console.log(`Upload complete for folder ${s3Key} in S3.`);
+        return true;
+    }
+    catch (error) {
+        console.error("An error occurred while handling duplicate or uploading content to S3:", error);
+        return false;
+    }
+}

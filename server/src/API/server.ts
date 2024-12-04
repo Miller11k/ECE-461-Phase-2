@@ -7,7 +7,7 @@ const app = express();
 
 // Middleware setup
 app.use(corsConfig); // Enable CORS
-app.use(express.json()); // Parse incoming JSON requests
+app.use(express.json({ limit: '100mb' })); // Parse incoming JSON requests added upper limit
 
 // Register application routes
 app.use('/', routes);

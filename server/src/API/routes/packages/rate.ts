@@ -43,10 +43,7 @@ router.get('/:id/rate', async (req: Request, res: Response) => {
     try {
         // Extract and validate the X-Authorization header
         const authHeader = req.headers['x-authorization'];
-        console.log(authHeader);
-        console.log("START");
-        console.log(process.env);
-        console.log(process.env.METRICS_DB_HOST?.trim());
+ 
         if (!authHeader || typeof authHeader !== 'string') {
             console.warn(`[WARN] Missing or invalid X-Authorization header`);
             res.status(403).json({ error: "Missing or invalid X-Authorization header" });

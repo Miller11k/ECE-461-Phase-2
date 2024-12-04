@@ -39,7 +39,7 @@ const { Pool } = pkg;
 const PERMANENT_BUCKET = process.env.S3_BUCKET_NAME;
 const REGION = process.env.AWS_REGION;
 const packageDbTable = process.env.PACKAGE_DB_TABLE;
-const metricsDbTable = process.env.DEPENDENCIES_DB_TABLE;
+const metricsDbTable = process.env.METRICS_DB_TABLE;
 
 // Validate required environment variables
 if (!metricsDbTable || !packageDbTable || !PERMANENT_BUCKET || !REGION || !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
@@ -72,7 +72,10 @@ const pool = new Pool({
     user: process.env.METRICS_DB_USER,
     password: process.env.METRICS_DB_PASSWORD,
     database: process.env.METRICS_DB_NAME,
-    port: Number(process.env.METRICS_DB_PORT)
+    port: Number(process.env.METRICS_DB_PORT),
+    ssl: {
+        rejectUnauthorized: false, 
+    },
 });
 
 // Check environment variables
@@ -365,6 +368,7 @@ async function processUrls(filePath: string[]): Promise<void> {
         // Get the package version
         const version = await getPackageVersion(owner, repo);
         const tempDownloadPath = `./${packageName}/${version}/Package.zip`;
+        console.log(tempDownloadPath);
 
         // // Check if the package already exists in S3
         // const packageExists = await doesPackageExistInS3(packageName, version);
@@ -374,23 +378,8 @@ async function processUrls(filePath: string[]): Promise<void> {
         const packageExists = await handleDuplicateAndUpload(packageName, version,base64package,s3Bucket);
 
         if(packageExists){
-            console.log(`Skipping upload for ${packageName} version ${version} as it already exists in S3.`);
             continue;
         }
-        // if (packageExists) {
-        //     console.log(`Skipping upload for ${packageName} version ${version} as it already exists in S3.`);
-        //     try {
-        //         await deletePackageFromS3(packageName, version);
-        //         console.log(`Successfully deleted existing package ${packageName} version ${version} from S3.`);
-
-        //         const s3Key = await uploadPackageToS3(tempDownloadPath, packageName, version);
-        //         console.log(`Successfully uploaded ${packageName} version ${version} to S3 with key: ${s3Key}`);
-        //         continue;
-        //     } catch (error) {
-        //         console.error(`Error processing package ${packageName} version ${version}:`, error);
-        //         continue;
-        //     }
-        // }
 
         // Evaluate the metrics
         const result = await netScore.evaluate();
@@ -464,11 +453,11 @@ async function processUrls(filePath: string[]): Promise<void> {
       // Insert metrics into the database
         const insertMetricsQuery = `
         INSERT INTO ${metricsDbTable} (
-            package_id, rampup, busfactor, correctness, licensescore, responsivemaintainer, netscore, 
+            package_id, rampup, busfactor, correctness, licensescore, responsivemaintainer, netscore, netscorelatency,
             rampuplatency, busfactorlatency, correctnesslatency, licensescorelatency, responsivemaintainerlatency, 
             goodpinningpractice, goodpinningpracticelatency, pullrequest, pullrequestlatency
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
         ON CONFLICT (package_id) 
         DO UPDATE SET 
             rampup = EXCLUDED.rampup,
@@ -477,6 +466,7 @@ async function processUrls(filePath: string[]): Promise<void> {
             licensescore = EXCLUDED.licensescore,
             responsivemaintainer = EXCLUDED.responsivemaintainer,
             netscore = EXCLUDED.netscore,
+            netscorelatency = EXCLUDED.netscorelatency,
             rampuplatency = EXCLUDED.rampuplatency,
             busfactorlatency = EXCLUDED.busfactorlatency,
             correctnesslatency = EXCLUDED.correctnesslatency,
@@ -497,6 +487,7 @@ async function processUrls(filePath: string[]): Promise<void> {
             netScore.license.license,
             netScore.maintainability.maintainability,
             netScore.netScore,
+            netScore.responseTime,
             netScore.rampUp.responseTime,
             netScore.busFactor.responseTime,
             netScore.correctness.responseTime,

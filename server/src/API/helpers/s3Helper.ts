@@ -464,6 +464,7 @@ export async function handleDuplicateAndUpload(
       await clearS3Folder(bucketName, s3Key, s3);
     } else {
       console.log(`No duplicate found: Proceeding with upload.`);
+      return false;
     }
 
     // Decode Base64 string into a Buffer
