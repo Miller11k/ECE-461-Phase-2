@@ -1,0 +1,588 @@
+openapi: 3.0.3
+info:
+  title: User Management API
+  version: 1.0.0
+  description: API for user management operations such as changing passwords, usernames, token management, and user creation.
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+
+tags:
+  - name: Users
+    description: Operations related to user management
+
+paths:
+  /change-password:
+    post:
+      summary: Change user's password
+      tags: [Users]
+      description: Endpoint to change a user's password.
+      operationId: changePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                newPassword:
+                  type: string
+                  description: The new password to set.
+      parameters:
+        - in: header
+          name: x-authorization
+          required: true
+          schema:
+            type: string
+          description: Bearer token for authentication.
+      responses:
+        '200':
+          description: Success response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Password changed successfully"
+        '400':
+          description: Bad request (e.g., password not provided or new password is same as current)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "New password cannot be blank"
+        '403':
+          description: Authentication failed (invalid token)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Authentication failed."
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "User not found"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "Internal server error"
+  
+  /change-username:
+    post:
+      summary: Change user's username
+      tags: [Users]
+      description: Allows a user to change their username.
+      operationId: changeUsername
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                newUsername:
+                  type: string
+                  description: The new username to set.
+      parameters:
+        - in: header
+          name: x-authorization
+          required: true
+          schema:
+            type: string
+          description: Bearer token for authentication.
+      responses:
+        '200':
+          description: Successful username update
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Username updated successfully"
+        '400':
+          description: Invalid or unchanged username
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Invalid or unchanged username"
+        '403':
+          description: Authentication failed (invalid token)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Authentication failed."
+        '404':
+          description: User not found or update failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "User not found or update failed"
+        '405':
+          description: Username already in use
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Username already in use"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "Internal server error"
+
+  /clear-tokens:
+    post:
+      summary: Clear all session tokens for a specific user
+      tags: [Users]
+      description: Clears all session tokens for a user specified by username.
+      operationId: clearTokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, token]
+              properties:
+                username:
+                  type: string
+                  description: Username whose tokens will be cleared.
+                token:
+                  type: string
+                  description: Session token for authentication.
+      responses:
+        '200':
+          description: Tokens cleared successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Tokens cleared successfully"
+        '400':
+          description: Bad request (e.g., missing username or token)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Username and token are required"
+        '401':
+          description: Invalid token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Invalid token"
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "User not found"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "Internal server error"
+
+  /delete-token:
+    delete:
+      summary: Delete a specific session token for a user
+      tags: [Users]
+      description: Deletes a specified token from a user's token array.
+      operationId: deleteToken
+      parameters:
+        - in: query
+          name: username
+          required: true
+          schema:
+            type: string
+          description: Username of the user.
+        - in: query
+          name: token
+          required: true
+          schema:
+            type: string
+          description: Token to be removed.
+      responses:
+        '200':
+          description: Token deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Token deleted successfully"
+        '400':
+          description: Bad request (e.g., username and token required)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Username and token are required"
+        '404':
+          description: Token not found or user does not exist
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Token not found or user does not exist"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "Internal server error"
+
+  /create-user:
+    post:
+      summary: Create a new user
+      tags: [Users]
+      description: Creates a new user with the given details.
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [first_name, last_name, username, plaintext_password, is_admin]
+              properties:
+                first_name:
+                  type: string
+                  description: First name of the user.
+                last_name:
+                  type: string
+                  description: Last name of the user.
+                username:
+                  type: string
+                  description: Username for the account.
+                plaintext_password:
+                  type: string
+                  description: Plaintext password for the account.
+                is_admin:
+                  type: boolean
+                  description: Admin status of the user.
+      responses:
+        '200':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '400':
+          description: Username already in use
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "Username already in use"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "Internal server error"
+
+  /:
+    post:
+      summary: Retrieve user details by authentication token
+      tags: [Users]
+      description: Retrieves user details based on a provided authentication token.
+      operationId: retrieveUserDetails
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+                  description: The authentication token (Bearer <JWT>).
+      responses:
+        '200':
+          description: User details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  firstName:
+                    type: string
+                    example: "John"
+                  lastName:
+                    type: string
+                    example: "Doe"
+                  username:
+                    type: string
+                    example: "johndoe"
+                  isAdmin:
+                    type: boolean
+                    example: false
+        '400':
+          description: Token not provided
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Token is required"
+        '401':
+          description: Invalid token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Invalid token"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "Internal server error"
+
+  /login:
+    post:
+      summary: User login
+      tags: [Users]
+      description: Endpoint for user authentication. Returns a token if credentials are valid.
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  description: Username for authentication.
+                password:
+                  type: string
+                  description: Password for authentication.
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  token:
+                    type: string
+                    example: "bearer <JWT>"
+        '400':
+          description: Username and password not provided
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Username and password are required in a flat structure."
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Invalid Credentials"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "Internal server error"
