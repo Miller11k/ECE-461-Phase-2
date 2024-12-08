@@ -22,6 +22,8 @@ import packagesRoute from './packages/packages.js'
 import resetRoute from './other/reset.js'
 import authenticateRoute from './other/authenticate.js';
 import tracksRoute from './other/tracks.js'
+import statusRoute from './other/status.js'
+import routesRoute from './other/routes.js'
 
 // Create a router instance to group and manage related user routes
 const router = Router();
@@ -64,6 +66,8 @@ router.use("/packages", packagesRoute);
 router.use("/reset", resetRoute);
 router.use("/authenticate", authenticateRoute); // Verify user authentication
 router.use("/tracks", tracksRoute);
+router.use('/', statusRoute);
+router.use("/routes", routesRoute);
 
 // Export the configured router
 export default router;
