@@ -10,6 +10,8 @@ import AdmZip from 'adm-zip';
 import { exec } from 'child_process';
 import util from 'util';
 import archiver from 'archiver';
+import unzipper from "unzipper";
+import {findPackageJson} from './fileHelper.js';
 
 type InputType = string | File;
 
@@ -22,13 +24,6 @@ const execPromise = util.promisify(exec);
  * @returns {Promise<string>} A promise that resolves to the Base64 string representation of the zip file.
  * @throws Will reject if the input is invalid, the file is not a valid zip file, or cannot be read.
  * 
- * @example
- * // Convert a zip file from the file system to Base64
- * convertZipToBase64('/path/to/file.zip').then((base64) => console.log(base64));
- * 
- * @example
- * // Convert a zip file from a browser's File object to Base64
- * const base64 = await convertZipToBase64(fileInput.files[0]);
  */
 export function convertZipToBase64(input: InputType): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -83,6 +78,13 @@ export function saveBase64AsZip(base64: string, outputFileName: string): void {
 }
 
 
+// Helper function to Base64 encode a file
+export async function encodeFileToBase64(filePath: string): Promise<string> {
+  const fileBuffer = await fs.promises.readFile(filePath);
+  return fileBuffer.toString('base64');
+}
+
+
 /**
  * Triggers a download of a Base64-encoded zip file in the browser.
  * 
@@ -122,84 +124,87 @@ export function downloadBase64AsZip(base64: string, fileName: string): void {
 }
 export async function cloneAndZipRepo(repoUrl: string, outputZipPath: string): Promise<boolean> {
     const tempDir = `/tmp/repo-${Date.now()}`;
-    try {
-      // Clone the repository
-      console.log(`Cloning repository ${repoUrl} into ${tempDir}`);
-      await execPromise(`git clone ${repoUrl} ${tempDir}`);
-  
-      // Create a zip file of the cloned repository
-      console.log(`Creating zip file at ${outputZipPath}`);
-      const output = fs.createWriteStream(outputZipPath);
-      const archive = archiver('zip', {
-        zlib: { level: 9 },
+
+  try {
+    // Clone the repository with shallow clone for performance
+    await execPromise(`git clone --depth 1 ${repoUrl} ${tempDir}`);
+
+    // Create a zip file of the cloned repository
+    const output = fs.createWriteStream(outputZipPath);
+    const archive = archiver('zip', { zlib: { level: 9 } });
+
+    const archivePromise = new Promise<void>((resolve, reject) => {
+      output.on('close', () => {
+        resolve();
       });
-  
-      // Listen for all archive data to be written
-      const archivePromise = new Promise<void>((resolve, reject) => {
-        output.on('close', () => {
-          console.log(
-            `Zip file ${outputZipPath} has been created, total bytes: ${archive.pointer()}`
-          );
-          resolve();
-        });
-        output.on('error', (err) => {
-          console.error('Error in output stream:', err);
-          reject(err);
-        });
+      output.on('error', (err) => {
+        reject(err);
       });
-  
       archive.on('error', (err) => {
-        console.error('Error in archiver:', err);
-        throw err;
+        reject(err);
       });
-  
-      archive.pipe(output);
-      archive.directory(tempDir, false);
-      await archive.finalize();
-  
-      // Wait for the output stream to finish
-      await archivePromise;
-  
-      // Clean up the temporary directory
-      fs.rmSync(tempDir, { recursive: true, force: true });
-  
-      return true;
-    } catch (error) {
-      console.error('Error cloning and zipping repository:', error);
-      // Clean up on error
-      if (fs.existsSync(tempDir)) {
-        fs.rmSync(tempDir, { recursive: true, force: true });
-      }
-      return false;
-    }
-  }
-/**
- * Extracts package.json from a zip file and parses its content.
- * @param {string} zipFilePath - The path to the zip file.
- * @returns {Promise<any>} - A promise that resolves to the parsed JSON content of package.json.
- */
-export function extractPackageJsonFromZip(zipFilePath: string): Promise<any> {
-    return new Promise((resolve, reject) => {
-        try {
-            const zip = new AdmZip(zipFilePath);
-            const zipEntries = zip.getEntries();
-
-            // Find package.json in the zip entries
-            const packageJsonEntry = zipEntries.find(entry => {
-                const entryName = entry.entryName.toLowerCase();
-                return entryName.endsWith('package.json') && !entryName.includes('__MACOSX');
-            });
-
-            if (!packageJsonEntry) {
-                reject(new Error('package.json not found in the zip file.'));
-                return;
-            }
-
-            const packageJsonContent = packageJsonEntry.getData().toString('utf8');
-            const packageJson = JSON.parse(packageJsonContent);
-            resolve(packageJson);
-        } catch (error) {
-            reject(error);
-        }
     });
+
+    archive.pipe(output);
+    archive.directory(tempDir, false);
+
+    // Finalize the archive
+    await archive.finalize();
+    await archivePromise;
+
+    // Clean up the temporary directory
+    await fs.promises.rm(tempDir, { recursive: true, force: true });
+
+    return true;
+  } catch (error) {
+
+    // Clean up the temporary directory on error
+    if (fs.existsSync(tempDir)) {
+      await fs.promises.rm(tempDir, { recursive: true, force: true });
+    }
+
+    return false;
+  }
+}
+
+
+/**
+ * Extracts `package.json` from a zip file.
+ *
+ * @param {string} base64Zip - The Base64 string representing the zip file.
+ * @returns {Promise<any>} The parsed content of `package.json` if found.
+ * @throws {Error} If `package.json` is not found or cannot be parsed.
+ */
+export async function extractPackageJsonFromZip(base64Zip: string): Promise<any | null> {
+  try {
+      // Decode the Base64 string into a binary buffer
+      const zipBuffer = Buffer.from(base64Zip, 'base64');
+      if (!zipBuffer || zipBuffer.length === 0) {
+          throw new Error('Invalid or empty Base64 zip content');
+      }
+
+      // Initialize an unzip stream
+      const zipStream = unzipper.Open.buffer(zipBuffer);
+
+      // Extract files and search for `package.json`
+      const directory = await zipStream;
+      const packageJsonEntry = directory.files.find(file => file.path.endsWith('package.json'));
+
+      if (!packageJsonEntry) {
+        return null;
+      }
+
+      // Extract and parse the `package.json` file content
+      const packageJsonContent = await packageJsonEntry.buffer();
+      return JSON.parse(packageJsonContent.toString('utf-8'));
+  } catch (error: any) {
+
+      // Return null if the error is FILE_ENDED
+      if (error.message.includes('FILE_ENDED')) {
+          return null;
+      }
+
+      // Rethrow other errors
+      throw new Error('Failed to extract package.json from Base64 zip.');
+  }
 }

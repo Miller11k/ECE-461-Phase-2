@@ -8,6 +8,15 @@ import type { Request, Response } from 'express';
 import { decodeAuthenticationToken } from '../../helpers/jwtHelper.js';
 import { packagesDBClient, packageDB, userDBClient } from '../../config/dbConfig.js';
 import { fetchReadmeMatches } from '../../helpers/s3Helper.js';
+import { createRequire } from 'module';
+import RE2 from 're2'; // Import RE2
+import { shouldLog } from '../../helpers/logHelper.js';
+
+
+const require = createRequire(import.meta.url);
+const safeRegex = require('safe-regex');
+
+
 
 const router = Router();
 
@@ -50,110 +59,169 @@ const router = Router();
  * }
  */
 router.post('/byRegEx', async (req: Request, res: Response) => {
+  let log_get_package = parseInt(process.env.LOG_POST_BYREGEX || '0', 10);
+  let log_all = parseInt(process.env.LOG_ALL || '0', 10);
+  let should_log = shouldLog(log_get_package, log_all);
+  
   try {
-    // Extract the 'X-Authorization' header
-    const authHeader = req.headers['x-authorization'];
+    console.log('*-------------------------------------------*');
+    console.log('POST /package/byRegEx endpoint hit');
+    console.log('*-------------------------------------------*');
 
+    // Extract and validate the 'X-Authorization' header
+    const authHeader = req.headers['x-authorization'];
+    if(should_log){
+      console.log('Authorization Header:', authHeader);
+    }
     if (!authHeader || typeof authHeader !== 'string') {
+      if(should_log){
+        console.log('Invalid or missing X-Authorization header.');
+      }
       res.status(403).json({ error: 'Invalid or missing X-Authorization header' });
       return;
     }
 
-    // Extract the token from the header, removing the "Bearer " prefix if present
     const x_authorization = authHeader.toLowerCase().startsWith('bearer ')
       ? authHeader.slice('bearer '.length).trim()
       : authHeader.trim();
+    if(should_log){
+      console.log('Extracted Authorization Token:', x_authorization);
+    }
 
-    // Decode the JWT token to get user information
+    // Decode the JWT token
     const decoded_jwt = await decodeAuthenticationToken(x_authorization);
-
-    // If no user matches the token, respond with 403
+    if(should_log){
+      console.log('Decoded JWT:', decoded_jwt);
+    }
     if (!decoded_jwt) {
-      res.status(403).json({ success: false, message: 'Authentication failed.' });
+      if(should_log){
+        console.log('Authentication failed.');
+      }
+      res.status(403).json({ error: 'Authentication failed.' });
       return;
     }
 
     const username = decoded_jwt.username;
+    if(should_log){
+      console.log('Authenticated Username:', username);
+    }
 
     // Verify user exists in the database
     const userResult = await userDBClient.query(
       `SELECT * FROM public.users WHERE username = $1`,
       [username]
     );
-
+    if(should_log){
+      console.log('User Query Result:', userResult.rows);
+    }
     if (userResult.rows.length === 0) {
-      res.status(403).json({ success: false, message: 'User not found.' });
+      if(should_log){
+        console.log('User not found in the database.');
+      }
+      res.status(403).json({ error: 'User not found.' });
       return;
     }
 
-    // Extract 'RegEx' from the request body
+    // Extract and validate 'RegEx' from the request body
     const { RegEx } = req.body;
-
+    if(should_log){
+      console.log('Provided RegEx:', RegEx);
+    }
     if (!RegEx || typeof RegEx !== 'string') {
+      if(should_log){
+        console.log('RegEx must be provided and of type string.');
+      }
       res.status(400).json({ error: 'RegEx must be provided in the request body' });
       return;
     }
 
     let regexPattern;
     try {
-      // Create a new regular expression object
-      regexPattern = new RegExp(RegEx, 'i');
+      regexPattern = new RE2(RegEx, 'i'); // Case-insensitive RE2 regex
+      if(should_log){
+        console.log('Compiled RE2 Regex:', regexPattern);
+      }
     } catch (err) {
-      res.status(400).json({ error: 'Invalid regular expression' });
+      if (err instanceof Error) {
+        if(should_log){
+          console.log('Invalid regular expression for RE2:', err.message);
+        }
+        res.status(400).json({ error: 'Invalid regular expression for RE2' });
+      } else {
+        if(should_log){
+          console.log('Unknown error in RE2 regex:', err);
+        }
+        res.status(400).json({ error: 'Unknown error occurred' });
+      }
       return;
-    }
-
+    }    
     // Fetch all packages from the database
+    if(should_log){
+      console.log('Fetching packages from database...');
+    }
     const query = `
       SELECT "ID", "Name", "Version", "Content"
       FROM ${packageDB}
     `;
     const resultPackages = await packagesDBClient.query(query);
+    if(should_log){
+      console.log('Fetched Packages:', resultPackages.rows.length);
+    }
 
     const allPackages = resultPackages.rows;
     const matchingPackages = [];
 
-    // Iterate through each package to check for matches
+    // Check packages against the regex using RE2
+    if(should_log){
+      console.log('Checking packages against the provided regex...');
+    }
     for (const pkg of allPackages) {
-      const packageID = pkg.ID;
-      const packageName = pkg.Name;
-      const packageVersion = pkg.Version;
-      const content = pkg.Content;
-
-      // Check if the regex matches the package name
-      if (regexPattern.test(packageName)) {
-        matchingPackages.push({
-          Name: packageName,
-          Version: packageVersion,
-          ID: packageID.toString(),
-        });
-        continue; // Move to next package since name matched
+      const { ID: packageID, Name: packageName, Version: packageVersion, Content: content } = pkg;
+      if(should_log){
+        console.log('Checking package:', packageName);
       }
 
-      // If 'Content' exists, check the README file
+      // Match against package name using RE2
+      if (regexPattern.test(packageName)) {
+        if(should_log){
+          console.log(`Package name matched: ${packageName}`);
+        }
+        matchingPackages.push({ Name: packageName, Version: packageVersion, ID: packageID.toString() });
+        continue;
+      }
+
+      // Match against README content using RE2
       if (content) {
-        const matches = await fetchReadmeMatches(content, regexPattern);
+        const regexPatternString = regexPattern.source; // Convert RE2 regex back to its string representation
+        const matches = await fetchReadmeMatches(content, regexPatternString);
+        if(should_log){
+          console.log('README Matches:', matches);
+        }
         if (matches && matches.length > 0) {
-          matchingPackages.push({
-            Name: packageName,
-            Version: packageVersion,
-            ID: packageID.toString(),
-          });
+          if(should_log){
+            console.log(`README content matched for package: ${packageName}`);
+          }
+          matchingPackages.push({ Name: packageName, Version: packageVersion, ID: packageID.toString() });
         }
       }
     }
 
-    // If no matching packages are found, respond with 404
+    // Respond with matching packages or an error if none found
     if (matchingPackages.length === 0) {
+      if(should_log){
+        console.log('No packages found matching the regex.');
+      }
       res.status(404).json({ error: 'No packages found matching the regex' });
-      return;
+    } else {
+      if(should_log){
+        console.log('Matching Packages:', matchingPackages);
+      }
+      res.status(200).json(matchingPackages);
     }
-
-    // Respond with the list of matching packages
-    res.status(200).json(matchingPackages);
   } catch (error) {
-    // Log the error and respond with 500 in case of an unexpected error
-    console.error('Error in POST /package/byRegEx:', error);
+    if(should_log){
+      console.error('Error in POST /package/byRegEx:', error);
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 });

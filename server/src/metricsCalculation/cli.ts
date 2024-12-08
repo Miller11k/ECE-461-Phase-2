@@ -23,7 +23,7 @@ import { NetScoreTest } from './netScore.js';
 import {getPackageVersion} from './getPackageVersion.js';
 // Additions for writing to the database
 import { generatePackageID } from '../API/helpers/packageIDHelper.js';
-import { convertZipToBase64 } from '../API/helpers/zipHelper.js';
+import { convertZipToBase64, cloneAndZipRepo} from '../API/helpers/zipHelper.js';
 import { uploadUnzippedToS3, handleDuplicateAndUpload } from '../API/helpers/s3Helper.js';
 import { getJWTSecret } from '../API/helpers/secretsHelper.js';
 
@@ -32,6 +32,14 @@ import pkg from 'pg';
 import { S3Client, HeadObjectCommand, GetObjectCommand, PutObjectCommand, GetBucketLoggingCommand } from "@aws-sdk/client-s3";
 // import { console } from 'inspector';
 import path from 'path';
+
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+// Define __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 const { Pool } = pkg;
 
 // dotenv.config();
@@ -321,7 +329,7 @@ async function runTests() {
  * 
  * @param {string} filePath - Path to the file containing URLs.
  */
-async function processUrls(filePath: string[]): Promise<void> {
+export async function processUrls(filePath: string[], is_internal: Boolean, name: string): Promise<any> {
     logger.info(`Processing URLs from file: ${filePath}`);
 
 
@@ -357,7 +365,7 @@ async function processUrls(filePath: string[]): Promise<void> {
     
 
         const netScore = new NetScore(url[0], url[1]);
-        const packageName = extractPackageName(netScore.NativeURL);
+        const packageName = name;
        
 
         // Extract owner and repo from the GitHub URL
@@ -367,148 +375,44 @@ async function processUrls(filePath: string[]): Promise<void> {
 
         // Get the package version
         const version = await getPackageVersion(owner, repo);
-        const tempDownloadPath = `./${packageName}/${version}/Package.zip`;
-        console.log(tempDownloadPath);
+        // const tempDownloadPath = `./${packageName}/${version}/Package.zip`;
+        // console.log(tempDownloadPath);
 
-        // // Check if the package already exists in S3
-        // const packageExists = await doesPackageExistInS3(packageName, version);
-        const base64package = await convertZipToBase64(tempDownloadPath);
-        const s3Bucket = PERMANENT_BUCKET || (() => { throw new Error('PERMANENT_BUCKET environment variable is not set');
-        })();
-        const packageExists = await handleDuplicateAndUpload(packageName, version,base64package,s3Bucket);
+        const tempDownloadPath = path.join(__dirname, packageName, version, 'Package.zip');
 
-        if(packageExists){
-            continue;
+        // Create the folder structure dynamically
+        const tempFolder = path.dirname(tempDownloadPath); // Extract the folder path (everything before 'Package.zip')
+        if (!fs.existsSync(tempFolder)) {
+            fs.mkdirSync(tempFolder, { recursive: true }); // Create folder structure recursively
+            console.log('Temporary folder created:', tempFolder);
         }
+
+        // Create an empty file at the `Package.zip` path
+        if (!fs.existsSync(tempDownloadPath)) {
+            fs.writeFileSync(tempDownloadPath, ''); // Create an empty file
+            console.log('Temporary empty file created:', tempDownloadPath);
+        }
+
+        // const tempDownloadPath = `/${packageName}/${version}/Package.zip`;
+        const cloneSuccess = await cloneAndZipRepo(netScore.NativeURL, tempDownloadPath);
+        console.log('Clone and zip success:', cloneSuccess);
+
+        if (!cloneSuccess) {
+            console.error('Failed to clone and zip repository from URL');
+            return;
+        }
+
 
         // Evaluate the metrics
         const result = await netScore.evaluate();
-        process.stdout.write(netScore.toString() + '\n');
+        const metricJSON = await netScore.getJSON();
+
         logger.debug(netScore.toString());
 
-        if (netScore.netScore < 0.5) {
-            console.log(`Skipping ${url[0]} due to low net score of ${netScore.netScore}.`);
-            continue;
-        }
-
-        // Upload package to S3
-        try {
-            const s3Key = await uploadPackageToS3(tempDownloadPath, packageName, version);
-        } catch (error) {
-            console.error(`Error processing package ${packageName} version ${version}:`, error);
-            continue;
-        }
-
-        // Generate S3 key
-        const S3link = generateS3Link(packageName, version);
+        return metricJSON;
 
     
-        // Insert package details into the database
-        const insertPackageQuery = `
-            INSERT INTO ${packageDbTable} (
-            "ID",
-            "Name",
-            "Version",
-            "Content",
-            repo_link,
-            is_internal,
-            debloat
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        ON CONFLICT (repo_link, "Version")
-        DO UPDATE SET 
-            "Content" = EXCLUDED."Content",
-            debloat = EXCLUDED.debloat;
 
-        `;
-
-        const packageId = generatePackageID(packageName, version);
-
-        
-        try {
-    
-            
-        
-            const packageValues = [
-                packageId,         // Unique package ID
-                packageName,       // Name of the package
-                version,           // Version of the package
-                S3link,           // S3 bucket location
-                netScore.NativeURL, // Repo link
-                false,             // is_internal flag  
-                null,         // debloat
-            ];
-        
-            await pool.query(insertPackageQuery, packageValues);
-            console.log(`Package successfully inserted or updated with ID: ${packageId}`);
-        } catch (err) {
-            if (err instanceof Error) {
-                console.log(`Error inserting or updating package: ${err.message}`);
-            } else {
-                console.log('Unexpected error inserting or updating package');
-            }
-        }
-        
-
-      // Insert metrics into the database
-        const insertMetricsQuery = `
-        INSERT INTO ${metricsDbTable} (
-            package_id, rampup, busfactor, correctness, licensescore, responsivemaintainer, netscore, netscorelatency,
-            rampuplatency, busfactorlatency, correctnesslatency, licensescorelatency, responsivemaintainerlatency, 
-            goodpinningpractice, goodpinningpracticelatency, pullrequest, pullrequestlatency
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-        ON CONFLICT (package_id) 
-        DO UPDATE SET 
-            rampup = EXCLUDED.rampup,
-            busfactor = EXCLUDED.busfactor,
-            correctness = EXCLUDED.correctness,
-            licensescore = EXCLUDED.licensescore,
-            responsivemaintainer = EXCLUDED.responsivemaintainer,
-            netscore = EXCLUDED.netscore,
-            netscorelatency = EXCLUDED.netscorelatency,
-            rampuplatency = EXCLUDED.rampuplatency,
-            busfactorlatency = EXCLUDED.busfactorlatency,
-            correctnesslatency = EXCLUDED.correctnesslatency,
-            licensescorelatency = EXCLUDED.licensescorelatency,
-            responsivemaintainerlatency = EXCLUDED.responsivemaintainerlatency,
-            goodpinningpractice = EXCLUDED.goodpinningpractice,
-            goodpinningpracticelatency = EXCLUDED.goodpinningpracticelatency,
-            pullrequest = EXCLUDED.pullrequest,
-            pullrequestlatency = EXCLUDED.pullrequestlatency
-        RETURNING metric_id;
-        `;
-
-        const metricsValues = [
-            packageId,
-            netScore.rampUp.rampUp,
-            netScore.busFactor.busFactor,
-            netScore.correctness.correctness,
-            netScore.license.license,
-            netScore.maintainability.maintainability,
-            netScore.netScore,
-            netScore.responseTime,
-            netScore.rampUp.responseTime,
-            netScore.busFactor.responseTime,
-            netScore.correctness.responseTime,
-            netScore.license.responseTime,
-            netScore.maintainability.responseTime,
-            netScore.DependencyPinning.dependencyPinning,
-            netScore.DependencyPinning.responseTime,
-            netScore.CodeReviewFraction.codeReviewFraction,
-            netScore.CodeReviewFraction.responseTime,
-        ];
-
-        try {
-            const metricsRes = await pool.query(insertMetricsQuery, metricsValues);
-            console.log(`Metrics inserted with metric_id: ${metricsRes.rows[0].metric_id}`);
-        } catch (err) {
-            if (err instanceof Error) {
-                console.log(`Error inserting metrics: ${err.message}`);
-            } else {
-                console.log('Unexpected error inserting metrics');
-            }
-        }
     }
 }
 
@@ -518,67 +422,3 @@ function extractPackageName(repoUrl: string) {
     const urlParts = repoUrl.split('/');
     return urlParts[urlParts.length - 1];
 }
-
-// /**
-//  * The main function. Handles command line arguments and executes the appropriate functions.
-//  */
-// function main() {
-//     logger.info('Starting CLI...');
-//     logger.info(`LOG_FILE: ${logFile}`);
-//     logger.info('GITHUB_TOKEN: [REDACTED]');
-//     logger.info(`LOG_LEVEL: ${logLevel}`);
-//     const argv = yargs(hideBin(process.argv))
-//         .command('test', 'Run test suite', {}, () => {
-//             runTests();
-//         })
-//         .command('$0 <file>', 'Process URLs from a file', (yargs) => {
-//             yargs.positional('file', {
-//                 describe: 'Path to the file containing URLs',
-//                 type: 'string'
-//             });
-//         }, (argv) => {
-//             let filename: string = argv.file as string;
-//             if (fs.existsSync(filename)) {
-//                 processUrls(filename);
-//             } else {
-//                 console.error(`File not found: ${argv.file}`);
-//                 showUsage();
-//                 process.exit(1);
-//             }
-//         })
-//         .help()
-//         .alias('help', 'h')
-//         .argv;
-
-//     logger.info('CLI finished.\n');
-// }
-function main() {
-    logger.info('Starting CLI...');
-    logger.info(`LOG_FILE: ${logFile}`);
-    logger.info('GITHUB_TOKEN: [REDACTED]');
-    logger.info(`LOG_LEVEL: ${logLevel}`);
-
-    const argv = yargs(hideBin(process.argv))
-        .usage('Usage: cli <url>')
-        .demandCommand(1, 'You must provide a URL to process.')
-        .help()
-        .alias('help', 'h')
-        .parseSync(); // Ensures that the result is not a Promise
-
-    const inputUrl: string[] = argv._.map((url) => url.toString());
-
-    if (!inputUrl) {
-        console.error('Error: Please provide a valid URL.');
-        process.exit(1);
-    }
-
-    processUrls(inputUrl)
-        .then(() => {
-            logger.info('Processing complete.');
-        })
-        .catch((error) => {
-            console.error('Error processing the URL:', error);
-            process.exit(1);
-        });
-}
-main()

@@ -7,7 +7,10 @@ import { packagesDBClient, packageDB, dependenciesDB } from '../config/dbConfig.
  * @param {boolean} includeDependencies - Whether to include the cost of dependencies.
  * @returns {Promise<object>} - An object containing the standalone and total cost of the package.
  */
-export async function calculatePackageCost(packageId: string, includeDependencies: boolean): Promise<{ standaloneCost: number; totalCost: number }> {
+export async function calculatePackageCost(
+    packageId: string,
+    includeDependencies: boolean
+): Promise<{ standaloneCost: number; totalCost: number }> {
     try {
         // Retrieve package information from the database
         const packageResult = await packagesDBClient.query(
@@ -19,38 +22,28 @@ export async function calculatePackageCost(packageId: string, includeDependencie
             throw new Error('Package not found');
         }
 
-        const packageData = packageResult.rows[0];
-        let standaloneCost = packageData.size_mb;
+        const standaloneCost = packageResult.rows[0].size_mb;
         let totalCost = standaloneCost;
 
-        // If dependencies are to be included, retrieve and add their costs
+        // If dependencies are to be included, retrieve their total size in a single query
         if (includeDependencies) {
-            const dependenciesResult = await packagesDBClient.query(
-                `SELECT "Dependency ID" FROM ${dependenciesDB} WHERE "Package ID" = $1`,
+            const dependenciesCostResult = await packagesDBClient.query(
+                `SELECT SUM(p."size_mb") AS total_dependency_size
+                 FROM ${dependenciesDB} d
+                 JOIN ${packageDB} p ON d."Dependency ID" = p."ID"
+                 WHERE d."Package ID" = $1`,
                 [packageId]
             );
 
-            if (dependenciesResult.rows.length > 0) {
-                for (const dependency of dependenciesResult.rows) {
-                    const dependencyId = dependency["Dependency ID"];
-                    const dependencyCostResult = await packagesDBClient.query(
-                        `SELECT "size_mb" FROM ${packageDB} WHERE "ID" = $1`,
-                        [dependencyId]
-                    );
-
-                    if (dependencyCostResult.rows.length > 0) {
-                        totalCost += dependencyCostResult.rows[0].size_mb;
-                    }
-                }
-            }
+            const dependencyCost = dependenciesCostResult.rows[0]?.total_dependency_size || 0;
+            totalCost += dependencyCost;
         }
 
         return {
             standaloneCost,
-            totalCost
+            totalCost,
         };
     } catch (error) {
-        console.error('Error calculating package cost:', error);
         throw error;
     }
 }

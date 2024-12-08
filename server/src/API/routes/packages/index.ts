@@ -33,10 +33,10 @@ router.get('/:id/cost', costPackageRoute);
 router.post('/byRegEx', byRegexPackageRoute);
 
 /**
- * POST `/package/:id` - Updates a package by ID.
+ * PUT `/package/:id` - Updates a package by ID.
  * @see {@link ./update.js}
  */
-router.post('/:id', updatePackageRoute);
+router.put('/:id', updatePackageRoute);
 
 /**
  * GET `/package/:id` - Retrieves a package's metadata and content by ID.

@@ -4,6 +4,7 @@
  */
 
 import { Request, Response, Router } from 'express';
+import { shouldLog } from '../../helpers/logHelper.js';
 
 
 // Create a new router instance to define and group related routes
@@ -35,12 +36,36 @@ const router = Router();
  * }
  */
 router.get('/', async (req, res) => {
-    // Return the JSON structure
+    let log_get_tracks = parseInt(process.env.LOG_GET_TRACKS || '0', 10);
+    let log_all = parseInt(process.env.LOG_ALL || '0', 10);
+    let should_log = shouldLog(log_get_tracks, log_all);
+    
+    console.log('\n\n\n*-------------------------------------------*');
+    console.log('GET /tracks endpoint hit');
+    console.log('*-------------------------------------------*');
+    
+    if(should_log){
+        console.log('Received GET request at /tracks endpoint.');
+    }
+    // Define the list of planned tracks
+    const tracks = [
+        "Access control track"
+    ];
+
+    // Log the tracks to be returned
+    if(should_log){
+        console.log('Returning planned tracks:', tracks);
+    }
+
+    // Return the JSON response with the list of planned tracks
     res.json({
-        plannedTracks: [
-            "Authentication Track"
-        ]
+        plannedTracks: tracks
     });
+
+    // Log the successful response
+    if(should_log){
+        console.log('Response sent successfully.');
+    }
 });
 
 export default router;

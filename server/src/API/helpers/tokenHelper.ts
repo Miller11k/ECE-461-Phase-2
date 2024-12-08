@@ -21,7 +21,6 @@ import * as os from 'os';
  * 
  * @example
  * const sessionToken = generateSessionToken();
- * console.log("Generated Session Token:", sessionToken);
  */
 export function generateSessionToken(): string {
     // Get the current timestamp

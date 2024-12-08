@@ -16,7 +16,9 @@ app.use('/', routes);
 await connectDatabases();
 
 // Start the server
-const PORT = process.env.API_PORT || 4010;
-app.listen(PORT, () => {
+const PORT = parseInt(process.env.API_PORT || '4010', 10); // Ensure it's a string or default to '4010'
+const HOST = '0.0.0.0'; // Listen on all IPv4 addresses
+
+app.listen(PORT, HOST, () => {
   console.log(`Server is running on port ${PORT}`);
 });

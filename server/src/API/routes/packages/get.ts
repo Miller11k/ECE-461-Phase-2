@@ -8,6 +8,8 @@ import { employeeDB, userDBClient, packagesDBClient, packageDB } from '../../con
 import { fetchPackage, getS3Path } from '../../helpers/s3Helper.js';
 import { decodeAuthenticationToken, displayDecodedPayload } from '../../helpers/jwtHelper.js';
 import { validate as isValidUUID } from 'uuid';
+import { shouldLog } from '../../helpers/logHelper.js';
+
 
 // Create a new router instance to define and group related routes
 const router = Router();
@@ -52,54 +54,102 @@ const router = Router();
  * }
  */
 router.get('/:id', async (req, res) => {
+
+    let log_get_package = parseInt(process.env.LOG_GET_PACKAGE_ID || '0', 10);
+    let log_all = parseInt(process.env.LOG_ALL || '0', 10);
+    let should_log = shouldLog(log_get_package, log_all);
+    
     try {
+
+        console.log('\n\n\n*-------------------------------------------*');
+        console.log('GET /package/:id endpoint hit');
+        console.log('*-------------------------------------------*');
+        
+        if(should_log){
+            console.log('Request params:', req.params);
+        }
+        
         // Extract and validate the X-Authorization header
         const authHeader = req.headers['x-authorization'];
+        if(should_log){
+            console.log('Extracted X-Authorization header:', authHeader);
+        }
+
         if (!authHeader || typeof authHeader !== 'string') {
-            // Respond with 403 if the header is missing or invalid
+            if(should_log){
+                console.log('Invalid or missing X-Authorization header');
+            }
             res.status(403).json({ error: "Invalid or missing X-Authorization header" });
             return;
         }
 
-        // Extract the token from the header, removing the "Bearer " prefix if present
         const x_authorization = authHeader.toLowerCase().startsWith("bearer ")
             ? authHeader.slice("bearer ".length).trim()
             : authHeader.trim();
 
+        if(should_log){
+            console.log('Extracted token:', x_authorization);
+        }
+
         const decoded_jwt = await decodeAuthenticationToken(x_authorization);
+        if(should_log){
+            console.log('Decoded JWT:', decoded_jwt);
+        }
 
-
-        // If no user matches the token, respond with 403
         if (!decoded_jwt) {
+            if(should_log){
+                console.log('Authentication failed. Token invalid or expired.');
+            }
             res.status(403).json({ success: false, message: 'Authentication failed.' });
             return;
         }
 
         const packageID = req.params.id;
-        if (!packageID || !isValidUUID(packageID)) {
-            res.status(400).json({ error: "Invalid package ID format." });
+        if(should_log){
+            console.log('Received package ID:', packageID);
+        }
+
+        // Validate the ID format; if invalid, respond with 404
+        if (!isValidUUID(packageID)) {
+            if(should_log){
+                console.log(`Invalid package ID format: ${packageID}`);
+            }
+            res.status(404).json({ error: `No package found with ID: ${packageID}` });
             return;
         }
 
+        // Proceed to query the database for a valid UUID
+        if(should_log){
+            console.log(`Querying the database for package ID: ${packageID}`);
+        }
         const packageResult = await packagesDBClient.query(
             `SELECT "Name", "Version", "Content" 
              FROM ${packageDB} 
              WHERE "ID" = $1`,
             [packageID]
         );
-        
-        // If the package is not found, respond with 404
+        if(should_log){
+            console.log('Database query result:', packageResult.rows);
+        }
+
         if (packageResult.rows.length === 0) {
+            if(should_log){
+                console.log(`No package found with ID: ${packageID}`);
+            }
             res.status(404).json({ error: `No package found with ID: ${packageID}` });
             return;
         }
-        
-        // Extract package details with exact property names
-        const { Name, Version, Content } = packageResult.rows[0];
 
+        const { Name, Version, Content } = packageResult.rows[0];
+        if(should_log){
+            console.log('Retrieved package details from database:', { Name, Version, Content });
+            console.log(`Fetching package content for Content ID: ${Content}`);
+        }
         const content_string = await fetchPackage(Content);
-        
-        // Format the response JSON to include metadata and content
+        if(should_log){
+            console.log('Fetched package content as Base64 string:', content_string);
+        }
+
         const responseJson = {
             metadata: {
                 Name,
@@ -107,17 +157,18 @@ router.get('/:id', async (req, res) => {
                 ID: packageID
             },
             data: {
-                // Content  // For testing purposes
                 Content: content_string
             }
         };
-        
-        // Send the successful response with package details
+        if(should_log){
+            console.log('Sending response with package details:', responseJson);
+        }
         res.status(200).json(responseJson);
 
     } catch (error) {
-        // Log the error and respond with 500 in case of an unexpected error
-        console.error(error);
+        if(should_log){
+            console.error('An unexpected error occurred:', error);
+        }
         res.status(500).json({ error: "Internal server error" });
     }
 });

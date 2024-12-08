@@ -26,7 +26,8 @@ export class NetScore extends Metrics {
      * The weights are used in the calculation of the net score. They are provided as an array of numbers.
      */
     // weights: Array<number> = [19.84, 7.47, 30.69, 42.0]; // 
-    weights: Array<number> = [12.84, 7.47, 30.69, 30.00,12.0,7.00 ]; // new weights
+  
+    weights: Array<number> = [40, 25, 15, 10, 7, 3];//descending weights
 
     /**
      * @brief The calculated net score of the repository.
@@ -112,6 +113,28 @@ export class NetScore extends Metrics {
             this.CodeReviewFraction.evaluate()
         ]);
         const endTime = performance.now();
+        
+        if (this.busFactor.busFactor == -1) {
+            this.busFactor.busFactor = 0.6;
+        }
+        if (this.correctness.correctness == -1) {
+            this.correctness.correctness = 0.6;
+        }
+        if (this.license.license == -1) {
+            this.license.license = 0.6;
+        }
+        if (this.rampUp.rampUp == -1) {
+            this.rampUp.rampUp = 0.6;
+        }
+        if (this.maintainability.maintainability == -1) {
+            this.maintainability.maintainability = 0.6;
+        }
+        if (this.DependencyPinning.dependencyPinning == -1) {
+            this.DependencyPinning.dependencyPinning = 0.6;
+        }
+        if (this.CodeReviewFraction.codeReviewFraction == -1) {
+            this.CodeReviewFraction.codeReviewFraction = 0.6;
+        }
 
 
         // Calculate the net score
@@ -122,11 +145,28 @@ export class NetScore extends Metrics {
         }
         else {
             this.netScore = 0;
+            // for (let i = 0; i < this.weights.length; i++) {
+            //     this.netScore += this.weights[i] * [this.busFactor.busFactor, this.correctness.correctness, this.rampUp.rampUp, this.maintainability.maintainability,this.DependencyPinning.dependencyPinning, this.CodeReviewFraction.codeReviewFraction][i] / 100;
+            // }
+
+                    // Array of metrics
+            const metrics = [
+                this.busFactor.busFactor,
+                this.correctness.correctness,
+                this.rampUp.rampUp,
+                this.maintainability.maintainability,
+                this.DependencyPinning.dependencyPinning,
+                this.CodeReviewFraction.codeReviewFraction,
+            ];
+
+            // Order metrics from highest to lowest
+            const orderedMetrics = [...metrics].sort((a, b) => b - a);
+
+            // Calculate netScore using ordered metrics
             for (let i = 0; i < this.weights.length; i++) {
-                this.netScore += this.weights[i] * [this.busFactor.busFactor, this.correctness.correctness, this.rampUp.rampUp, this.maintainability.maintainability,this.DependencyPinning.dependencyPinning, this.CodeReviewFraction.codeReviewFraction][i] / 100;
+                this.netScore += this.weights[i] * orderedMetrics[i] / 100;
             }
-            
-        }
+            }
 
 
         // Check if netscore is between 0 and 1
@@ -173,7 +213,9 @@ export class NetScore extends Metrics {
             "License": ${this.license.license.toFixed(3)},
             "License_Latency": ${this.license.responseTime.toFixed(3)},
             "Dependency Pinning": ${this.DependencyPinning.dependencyPinning},
-            "Code Review fraction": ${this.CodeReviewFraction.codeReviewFraction} 
+            "dependency pinning latency;" ${this.DependencyPinning.responseTime}, 
+            "Code Review fraction": ${this.CodeReviewFraction.codeReviewFraction},
+            "code review latency": ${this.CodeReviewFraction.responseTime},
         }`.replace(/\s+/g, ' ')
             .replace(/\s*{\s*/g, '{')
             .replace(/\s*}\s*/g, '}')
@@ -181,7 +223,31 @@ export class NetScore extends Metrics {
             .replace(/\s*"\s*/g, '"')
             .replace(/,(?!\s)/g, ', ');
     }
+
+    getJSON(): Record<string, any> {
+        return {
+            URL: this.NativeURL,
+            NetScore: parseFloat(this.netScore.toFixed(3)),
+            NetScore_Latency: parseFloat(this.responseTime.toFixed(3)),
+            RampUp: parseFloat(this.rampUp.rampUp.toFixed(3)),
+            RampUp_Latency: parseFloat(this.rampUp.responseTime.toFixed(3)),
+            Correctness: parseFloat(this.correctness.correctness.toFixed(3)),
+            Correctness_Latency: parseFloat(this.correctness.responseTime.toFixed(3)),
+            BusFactor: parseFloat(this.busFactor.busFactor.toFixed(3)),
+            BusFactor_Latency: parseFloat(this.busFactor.responseTime.toFixed(3)),
+            ResponsiveMaintainer: parseFloat(this.maintainability.maintainability.toFixed(3)),
+            ResponsiveMaintainer_Latency: parseFloat(this.maintainability.responseTime.toFixed(3)),
+            License: parseFloat(this.license.license.toFixed(3)),
+            License_Latency: parseFloat(this.license.responseTime.toFixed(3)),
+            DependencyPinning:  parseFloat(this.DependencyPinning.dependencyPinning.toFixed(3)),
+            DependencyPinning_latency: parseFloat(this.DependencyPinning.responseTime.toFixed(3)),
+            CodeReviewFraction: parseFloat(this.CodeReviewFraction.codeReviewFraction.toFixed(3)),
+            CodeReviewFraction_latency: parseFloat(this.CodeReviewFraction.responseTime.toFixed(3)),
+        };
+    }
+       
 }
+
 
 
 /**

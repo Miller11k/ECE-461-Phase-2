@@ -110,9 +110,7 @@ export async function decodeAuthenticationToken(token: string): Promise<Omit<Cus
     return { firstName, lastName, username, isAdmin };
   } catch (error) {
     if (error instanceof Error) {
-      console.error('Token verification failed:', error.message);
     } else {
-      console.error('An unknown error occurred.');
     }
     return null;
   }
@@ -135,9 +133,4 @@ export function displayDecodedPayload(
 
   const { firstName, lastName, username, isAdmin } = decodedPayload;
 
-  console.log('Decoded JWT Payload:');
-  console.log(`  First Name: ${firstName}`);
-  console.log(`  Last Name: ${lastName}`);
-  console.log(`  Username: ${username}`);
-  console.log(`  Is Admin: ${isAdmin ? 'Yes' : 'No'}`);
 }

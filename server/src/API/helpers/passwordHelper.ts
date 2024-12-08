@@ -15,7 +15,6 @@ import * as crypto from 'crypto';
  * 
  * @example
  * const hash = hashWithSalt('password', 'random_salt');
- * console.log(hash); // Outputs the hashed value
  */
 export function hashWithSalt(input: string, salt: string = ""): string {
     const saltedInput = `${input}-${salt}`; // Combine input and salt
@@ -32,7 +31,6 @@ export function hashWithSalt(input: string, salt: string = ""): string {
  * 
  * @example
  * const salt = createSalt(16);
- * console.log(salt); // Outputs a random 16-byte salt
  */
 export function createSalt(length: number = 16): string {
     const array = crypto.randomBytes(length); // Use crypto for secure random values
@@ -50,7 +48,6 @@ export function createSalt(length: number = 16): string {
  * 
  * @example
  * const hashedPassword = generatePassword('mypassword', 'random_salt', 12);
- * console.log(hashedPassword); // Outputs the final hashed password
  */
 export function generatePassword(plaintext: string, salt: string, rounds: number = 12): string {
     let hashValue = plaintext; // Start with the password
@@ -74,7 +71,6 @@ export function generatePassword(plaintext: string, salt: string, rounds: number
  * 
  * @example
  * const isValid = validatePassword('mypassword', 'hashed_password', 'random_salt');
- * console.log(isValid); // Outputs true or false
  */
 export function validatePassword(plaintext: string, ciphertext: string, salt: string): boolean {
     let password = plaintext;

@@ -8,6 +8,7 @@ import archiver from "archiver";
 import unzipper from "unzipper";
 import stream from "stream";
 import fs from "fs";
+import RE2 from "re2";
 const { S3 } = AWS;
 
 
@@ -40,7 +41,6 @@ export async function fetchZipFileContent(bucketName: string, fileKey: string): 
 
 		// Check if Body exists
 		if (!response.Body) {
-			console.error("No content found in the file.");
 			return null;
 		}
 
@@ -49,7 +49,6 @@ export async function fetchZipFileContent(bucketName: string, fileKey: string): 
 
 		return base64Content;
 	} catch (error) {
-		console.error("An error occurred while fetching the file:", error);
 		return null;
 	}
 }
@@ -82,7 +81,6 @@ export async function fetchZip(fileKey: string): Promise<string | null> {
 
 		// Check if Body exists
 		if (!response.Body) {
-			console.error("No content found in the file.");
 			return null;
 		}
 
@@ -91,7 +89,6 @@ export async function fetchZip(fileKey: string): Promise<string | null> {
 
 		return base64Content;
 	} catch (error) {
-		console.error("An error occurred while fetching the file:", error);
 		return null;
 	}
 }
@@ -105,73 +102,58 @@ export async function fetchZip(fileKey: string): Promise<string | null> {
  */
 export async function fetchPackage(folder_path: string, zipName?: string): Promise<string | null> {
 	const s3 = new S3({
-		accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-		secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-		region: process.env.AWS_REGION,
+	  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+	  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+	  region: process.env.AWS_REGION,
 	});
-
-	// Parse the S3 URL
+  
 	const parsed = parseS3Url(folder_path);
-	if (!parsed) {
-		return null;
-	}
+	if (!parsed) return null;
+  
 	const { bucketName, folderKey } = parsed;
-
+  
 	try {
-		// Derive the default zip name if not provided
-		if (!zipName) {
-			const segments = folderKey.split("/").filter((segment) => segment); // Remove empty parts
-			zipName = segments.join("-"); // Combine with "-" as separator
-		}
-
-		// List objects in the specified folder
-		const listResponse = await s3
-		.listObjectsV2({
-			Bucket: bucketName,
-			Prefix: folderKey,
-		})
-		.promise();
-
-		if (!listResponse.Contents || listResponse.Contents.length === 0) {
-			console.error("No files found in the specified folder.");
-			return null;
-		}
-
-		// Create a zip archive
-		const archive = archiver("zip", { zlib: { level: 9 } });
-		const bufferStream = new stream.PassThrough();
-		const buffers: Buffer[] = [];
-		bufferStream.on("data", (chunk) => buffers.push(chunk));
-		archive.pipe(bufferStream);
-
-		// Add each file to the archive inside a folder named after zipName
-		for (const file of listResponse.Contents) {
-			if (!file.Key || file.Key.endsWith("/")) {
-				continue; // Skip folders or invalid keys
-			}
-
-			const fileStream = await s3
-			.getObject({ Bucket: bucketName, Key: file.Key })
-			.createReadStream();
-
-			// Add to the archive with a prefix folder named zipName
-			archive.append(fileStream, {
-				name: `${zipName}/${file.Key.replace(folderKey, "")}`,
-			});
-		}
-
-		// Finalize the archive
-		await archive.finalize();
-
-		// Convert the zipped data to Base64
-		const zippedBuffer = Buffer.concat(buffers);
-
-		return zippedBuffer.toString("base64");
-	} catch (error) {
-		console.error("An error occurred while zipping the folder contents:", error);
+	  if (!zipName) {
+		const segments = folderKey.split("/").filter((segment) => segment);
+		zipName = segments.join("-");
+	  }
+  
+	  const listResponse = await s3.listObjectsV2({ Bucket: bucketName, Prefix: folderKey }).promise();
+  
+	  if (!listResponse.Contents || listResponse.Contents.length === 0) {
 		return null;
+	  }
+  
+	  const archive = archiver("zip", { zlib: { level: 9 } });
+	  const buffers: Buffer[] = [];
+  
+	  // Collect data into buffers
+	  archive.on("data", (data) => buffers.push(data));
+	  archive.on("error", (err) => {
+		throw err;
+	  });
+  
+	  for (const file of listResponse.Contents) {
+		if (!file.Key || file.Key.endsWith("/")) continue;
+  
+		const fileStream = s3.getObject({ Bucket: bucketName, Key: file.Key }).createReadStream();
+		archive.append(fileStream, {
+		  name: `${zipName}/${file.Key.replace(folderKey, "")}`,
+		});
+	  }
+  
+	  await archive.finalize();
+  
+	  // Ensure all data has been written to buffers
+	  const zippedBuffer = Buffer.concat(buffers);
+  
+	  // Return Base64-encoded data
+	  return zippedBuffer.toString("base64");
+	} catch (error) {
+	  return null;
 	}
-}
+  }
+  
 
 /**
  * Parses an S3 URL and extracts the bucket name and folder key.
@@ -180,7 +162,6 @@ export async function fetchPackage(folder_path: string, zipName?: string): Promi
  */
 function parseS3Url(s3Url: string): { bucketName: string; folderKey: string } | null {
 	if (!s3Url.startsWith("s3://")) {
-		console.error("Invalid S3 URL format.");
 	return null;
 	}
 
@@ -189,7 +170,6 @@ function parseS3Url(s3Url: string): { bucketName: string; folderKey: string } | 
 	const folderKey = parts.join("/"); // Extract the folder key
 
 	if (!bucketName || !folderKey) {
-		console.error("Invalid S3 URL structure.");
 		return null;
 	}
 
@@ -225,76 +205,75 @@ export function getS3Path(s3Url: string): string | null {
  */
 export async function fetchReadmeMatches(
 	folderPath: string,
-	regex: RegExp
-): Promise<string[] | null> {
+	regex: string
+  ): Promise<string[] | null> {
+  
 	const s3 = new S3({
-		accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-		secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-		region: process.env.AWS_REGION,
+	  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+	  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+	  region: process.env.AWS_REGION,
 	});
-
-	// Parse the S3 URL
+  
 	const parsed = parseS3Url(folderPath);
 	if (!parsed) {
-		console.error("Invalid S3 folder path.");
-		return null;
+	  return null;
 	}
+  
 	const { bucketName, folderKey } = parsed;
-
+  
 	try {
-		// List objects in the specified folder
-		const listResponse = await s3
+	  const listResponse = await s3
 		.listObjectsV2({
-			Bucket: bucketName,
-			Prefix: folderKey,
+		  Bucket: bucketName,
+		  Prefix: folderKey,
 		})
 		.promise();
-
-		if (!listResponse.Contents || listResponse.Contents.length === 0) {
-			console.error("No files found in the specified folder.");
-			return null;
-		}
-
-		// Look for a README file in the folder
-		const readmeFile = listResponse.Contents.find((file) =>
-							      file.Key?.toLowerCase().includes("readme")
-							     );
-
-							     if (!readmeFile || !readmeFile.Key) {
-								     console.error("README file not found in the folder.");
-								     return null;
-							     }
-
-							     // Fetch the README file content
-							     const response = await s3
-							     .getObject({
-								     Bucket: bucketName,
-								     Key: readmeFile.Key,
-							     })
-							     .promise();
-
-							     if (!response.Body) {
-								     console.error("README file is empty or could not be read.");
-								     return null;
-							     }
-
-							     const content = response.Body.toString("utf-8");
-
-							     // Apply the regex to the content
-							     const matches = [...content.matchAll(regex)];
-
-							     if (matches.length === 0) {
-								     console.error("No matches found in the README file.");
-								     return null;
-							     }
-
-							     // Return an array of matches
-							     return matches.map((match) => match[0]);
-	} catch (error) {
-		console.error("An error occurred while processing the README file:", error);
+  
+  
+	  if (!listResponse.Contents || listResponse.Contents.length === 0) {
 		return null;
+	  }
+  
+	  const readmeFile = listResponse.Contents.find((file) =>
+		file.Key?.toLowerCase().includes("readme")
+	  );
+  
+	  if (!readmeFile || !readmeFile.Key) {
+		return null;
+	  }
+	  const response = await s3
+		.getObject({
+		  Bucket: bucketName,
+		  Key: readmeFile.Key,
+		})
+		.promise();
+  
+  
+	  if (!response.Body) {
+		return null;
+	  }
+  
+	  const content = response.Body.toString("utf-8");
+  
+	  const re2 = new RE2(regex, "g"); // Ensure global flag is set
+  
+	  const matches: string[] = [];
+	  let match: RegExpExecArray | null;
+  
+	  // Use re2.exec() to iteratively find matches
+	  while ((match = re2.exec(content)) !== null) {
+		matches.push(match[0]);
+	  }
+  
+	  if (matches.length === 0) {
+		return null;
+	  }
+  
+	  return matches;
+	} catch (error) {
+	  return null;
 	}
-}
+  }  
 
 
 /**
@@ -347,7 +326,7 @@ export async function deleteAllS3BucketContents(bucketName: string): Promise<boo
  * @param folderKey - The folder path in the bucket.
  * @param s3 - The S3 client instance.
  */
-async function clearS3Folder(bucketName: string, folderKey: string, s3: AWS.S3): Promise<void> {
+export async function clearS3Folder(bucketName: string, folderKey: string, s3: AWS.S3): Promise<void> {
 	try {
 		const listResponse = await s3
 		.listObjectsV2({
@@ -368,8 +347,7 @@ async function clearS3Folder(bucketName: string, folderKey: string, s3: AWS.S3):
 
 		}
 	} catch (error) {
-		console.error(`Failed to clear folder: s3://${bucketName}/${folderKey}`, error);
-			throw error;
+		throw error;
 	}
 }
 
@@ -438,7 +416,6 @@ export async function uploadUnzippedToS3(
     
     return true;
   } catch (error) {
-    console.error("An error occurred while uploading unzipped contents to S3:", error);
     return false;
   }
 }
@@ -472,10 +449,8 @@ export async function handleDuplicateAndUpload(
       });
 
     if (headResponse) {
-      console.log(`Duplicate found: Clearing existing folder ${s3Key} in S3.`);
       await clearS3Folder(bucketName, s3Key, s3);
     } else {
-      console.log(`No duplicate found: Proceeding with upload.`);
       return false;
     }
 
@@ -517,10 +492,60 @@ export async function handleDuplicateAndUpload(
     // Wait for all uploads to complete
     await Promise.all(extractedFiles);
 
-    console.log(`Upload complete for folder ${s3Key} in S3.`);
     return true;
   } catch (error) {
-    console.error("An error occurred while handling duplicate or uploading content to S3:", error);
     return false;
   }
 }
+
+
+/**
+ * Calculates the total size of a folder in an S3 bucket, including all its contents.
+ *
+ * @async
+ * @function calculateFolderSize
+ * @param {string} folderPath - The S3 URL of the folder, e.g., s3://bucket-name/folder/key/.
+ * @returns {Promise<number>} A promise that resolves to the total size of the folder in bytes.
+ */
+export async function calculateFolderSize(folderPath: string): Promise<number> {
+	const s3 = new S3({
+	  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+	  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+	  region: process.env.AWS_REGION,
+	});
+  
+	const parsed = parseS3Url(folderPath);
+	if (!parsed) {
+	  throw new Error("Invalid S3 folder path.");
+	}
+  
+	const { bucketName, folderKey } = parsed;
+  
+	try {
+	  let totalSize = 0;
+	  let continuationToken: string | undefined;
+  
+	  do {
+		// List objects in the folder
+		const listResponse = await s3
+		  .listObjectsV2({
+			Bucket: bucketName,
+			Prefix: folderKey,
+			ContinuationToken: continuationToken,
+		  })
+		  .promise();
+  
+		if (listResponse.Contents && listResponse.Contents.length > 0) {
+		  // Sum the sizes of all objects in the folder
+		  totalSize += listResponse.Contents.reduce((acc, obj) => acc + (obj.Size || 0), 0);
+		}
+  
+		// Handle paginated results
+		continuationToken = listResponse.NextContinuationToken;
+	  } while (continuationToken);
+  
+	  return totalSize;
+	} catch (error) {
+	  throw error;
+	}
+  }

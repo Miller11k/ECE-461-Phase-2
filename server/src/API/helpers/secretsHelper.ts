@@ -38,7 +38,6 @@ const secretsManagerClient = new SecretsManagerClient({
  * 
  * @example
  * const jwtSecret = await getJWTSecret();
- * console.log("JWT Secret:", jwtSecret);
  */
 export const getJWTSecret = async (): Promise<string> => {
   const jwtSecretName = process.env.JWT_SECRET_NAME;
@@ -67,7 +66,6 @@ export const getJWTSecret = async (): Promise<string> => {
 
     return secretObject[jwtSecretKey]; // Return the isolated JWT_SECRET value
   } catch (error) {
-    console.error("Failed to retrieve or parse JWT secret:", error);
     throw error;
   }
 };

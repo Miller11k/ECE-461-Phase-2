@@ -16,7 +16,6 @@ import { v5 as uuidv5 } from 'uuid';
  * @example
  * // Generate a unique ID for lodash version 4.17.21
  * const packageID = generatePackageID('lodash', '4.17.21');
- * console.log(packageID);
  */
 export function generatePackageID(packageName: string, version: string): string {
   const NAMESPACE = "6ba7b810-9dad-11d1-80b4-00c04fd430c8"; // Namespace UUID (constant)
