@@ -4,6 +4,7 @@ notes/
 # Node.js
 node_modules/
 .env
+.env.dev
 coverage/
 
 # OS-specific files
