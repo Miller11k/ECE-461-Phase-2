@@ -1,5 +1,5 @@
 import express from 'express';
-import corsConfig from './config/cors.js';
+import { corsConfig, rateLimiter } from './config/cors.js';
 import { connectDatabases } from './config/dbConfig.js';
 import routes from './routes/index.js';
 
@@ -7,10 +7,12 @@ const app = express();
 
 // Middleware setup
 app.use(corsConfig); // Enable CORS
-app.use(express.json({ limit: '100mb' })); // Parse incoming JSON requests added upper limit
+app.use(rateLimiter); // Apply rate limiting middleware
+app.use(express.json({ limit: '100mb' })); // Parse incoming JSON requests, added upper limit
 
 // Register application routes
 app.use('/', routes);
+
 
 // Initialize database connections
 await connectDatabases();
