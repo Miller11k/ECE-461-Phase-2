@@ -18,12 +18,15 @@ const execAsync = promisify(exec);
  * @throws {Error} If there is an issue with the database query or connection.
  */
 export const getDependenciesByPackageId = async (packageId: string): Promise<Map<string, { name: string; size: number }>> => {
+    console.log("Function getDependenciesByPackageId called with packageId:", packageId);
 
     if (!packageId) {
+        console.error("Package ID is missing.");
         throw new Error("Package ID is required");
     }
 
     if (!isUUID(packageId)) {
+        console.error("Invalid Package ID format:", packageId);
         throw new Error("Invalid Package ID. Must be a valid UUID.");
     }
 
@@ -32,34 +35,45 @@ export const getDependenciesByPackageId = async (packageId: string): Promise<Map
         FROM ${dependenciesDB}
         WHERE "Package ID" = $1
     `;
+    console.log("Prepared SQL query:", query);
 
     try {
+        console.log("Checking database connection...");
         await packagesDBClient.connect(); // Ensure the database is connected
+        console.log("Database connection successful.");
 
+        console.log("Executing query with packageId:", packageId);
         const result = await packagesDBClient.query(query, [packageId]);
+        console.log("Query executed successfully.");
 
         if (result.rows.length === 0) {
+            console.log("No dependencies found for packageId:", packageId);
             return new Map();
         }
 
         const dependenciesMap = new Map<string, { name: string; size: number }>();
         result.rows.forEach((row) => {
             // Only print UUID and size
+            console.log(`UUID: ${row["Dependency ID"]}, Size: ${parseFloat(row.size)}`);
             dependenciesMap.set(row["Dependency ID"], {
                 name: row.name,
                 size: parseFloat(row.size),
             });
         });
 
+        console.log("Final dependencies map constructed.");
         return dependenciesMap;
     } catch (error) {
         if (error instanceof Error) {
+            console.error("Error during query execution or processing:", error.message);
             throw new Error("Failed to fetch dependencies: " + error.message);
         } else {
+            console.error("An unknown error occurred:", error);
             throw new Error("Failed to fetch dependencies due to an unknown error.");
         }
     } finally {
         await packagesDBClient.end(); // Always close the connection after execution
+        console.log("Database connection closed.");
     }
 };
 
@@ -126,34 +140,48 @@ export async function get_all_costs(
     }
   
     try {
+      console.log("Decoding and unzipping file...");
       tempDir = await unzipToTempDir(zipBuffer);
+      console.log("Temporary directory created at:", tempDir);
   
       const packageJsonPath = await findPackageJson(tempDir);
       if (!packageJsonPath) {
         throw new Error("No package.json found in the zip file.");
       }
   
+      console.log("Found package.json at:", packageJsonPath);
+  
+      console.log("Running npm install...");
       await execAsync("npm install --ignore-scripts --legacy-peer-deps --force", {
         cwd: path.dirname(packageJsonPath),
       });
   
       const nodeModulesPath = path.join(path.dirname(packageJsonPath), "node_modules");
+      console.log("Calculating dependency costs recursively...");
       const { costs: dependencyCosts, total: totalCost } = await calculateDependencyCost(nodeModulesPath);
   
+      console.log("Calculating total folder size...");
       const totalFolderSizeBytes = await calculateDirectorySize(tempDir);
       const totalFolderSizeMB = Math.round((totalFolderSizeBytes / (1024 * 1024)) * 100) / 100;
+  
+      console.log("Dependency costs:", dependencyCosts);
+      console.log("Total cost of dependencies in MB:", totalCost);
+      console.log("Total folder size in MB:", totalFolderSizeMB);
   
       return { dependencyCosts, totalFolderSize: totalFolderSizeMB };
     } catch (error) {
       if (error instanceof Error) {
+        console.error("Error in get_all_costs:", error.message);
         throw new Error("Failed to calculate costs and total folder size: " + error.message);
       } else {
+        console.error("Unexpected error type:", error);
         throw new Error("An unknown error occurred.");
       }
     } finally {
       if (tempDir) {
         try {
           await fs.rm(tempDir, { recursive: true, force: true });
+          console.log("Cleaned up temporary directory:", tempDir);
         } catch (cleanupError) {
           if (cleanupError instanceof Error) {
             console.warn("Failed to clean up temporary directory:", tempDir, cleanupError.message);

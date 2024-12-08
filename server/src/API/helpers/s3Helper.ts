@@ -41,6 +41,7 @@ export async function fetchZipFileContent(bucketName: string, fileKey: string): 
 
 		// Check if Body exists
 		if (!response.Body) {
+			console.error("No content found in the file.");
 			return null;
 		}
 
@@ -49,6 +50,7 @@ export async function fetchZipFileContent(bucketName: string, fileKey: string): 
 
 		return base64Content;
 	} catch (error) {
+		console.error("An error occurred while fetching the file:", error);
 		return null;
 	}
 }
@@ -81,6 +83,7 @@ export async function fetchZip(fileKey: string): Promise<string | null> {
 
 		// Check if Body exists
 		if (!response.Body) {
+			console.error("No content found in the file.");
 			return null;
 		}
 
@@ -89,6 +92,7 @@ export async function fetchZip(fileKey: string): Promise<string | null> {
 
 		return base64Content;
 	} catch (error) {
+		console.error("An error occurred while fetching the file:", error);
 		return null;
 	}
 }
@@ -121,6 +125,7 @@ export async function fetchPackage(folder_path: string, zipName?: string): Promi
 	  const listResponse = await s3.listObjectsV2({ Bucket: bucketName, Prefix: folderKey }).promise();
   
 	  if (!listResponse.Contents || listResponse.Contents.length === 0) {
+		console.error("No files found in the specified folder.");
 		return null;
 	  }
   
@@ -130,6 +135,7 @@ export async function fetchPackage(folder_path: string, zipName?: string): Promi
 	  // Collect data into buffers
 	  archive.on("data", (data) => buffers.push(data));
 	  archive.on("error", (err) => {
+		console.error("Error during archiving:", err);
 		throw err;
 	  });
   
@@ -150,6 +156,7 @@ export async function fetchPackage(folder_path: string, zipName?: string): Promi
 	  // Return Base64-encoded data
 	  return zippedBuffer.toString("base64");
 	} catch (error) {
+	  console.error("An error occurred while zipping the folder contents:", error);
 	  return null;
 	}
   }
@@ -162,6 +169,7 @@ export async function fetchPackage(folder_path: string, zipName?: string): Promi
  */
 function parseS3Url(s3Url: string): { bucketName: string; folderKey: string } | null {
 	if (!s3Url.startsWith("s3://")) {
+		console.error("Invalid S3 URL format.");
 	return null;
 	}
 
@@ -170,6 +178,7 @@ function parseS3Url(s3Url: string): { bucketName: string; folderKey: string } | 
 	const folderKey = parts.join("/"); // Extract the folder key
 
 	if (!bucketName || !folderKey) {
+		console.error("Invalid S3 URL structure.");
 		return null;
 	}
 
@@ -207,6 +216,7 @@ export async function fetchReadmeMatches(
 	folderPath: string,
 	regex: string
   ): Promise<string[] | null> {
+	console.log(`[fetchReadmeMatches] Function invoked with folderPath: ${folderPath} and regex: ${regex}`);
   
 	const s3 = new S3({
 	  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -216,12 +226,15 @@ export async function fetchReadmeMatches(
   
 	const parsed = parseS3Url(folderPath);
 	if (!parsed) {
+	  console.error("[fetchReadmeMatches] Invalid S3 folder path.");
 	  return null;
 	}
   
 	const { bucketName, folderKey } = parsed;
+	console.log(`[fetchReadmeMatches] Parsed bucketName: ${bucketName}, folderKey: ${folderKey}`);
   
 	try {
+	  console.log(`[fetchReadmeMatches] Listing objects in bucket: ${bucketName}, with prefix: ${folderKey}`);
 	  const listResponse = await s3
 		.listObjectsV2({
 		  Bucket: bucketName,
@@ -229,18 +242,25 @@ export async function fetchReadmeMatches(
 		})
 		.promise();
   
+	//   console.log(`[fetchReadmeMatches] List response:`, listResponse);
   
 	  if (!listResponse.Contents || listResponse.Contents.length === 0) {
+		console.error("[fetchReadmeMatches] No files found in the specified folder.");
 		return null;
 	  }
   
+	  console.log(`[fetchReadmeMatches] Searching for README file in folder.`);
 	  const readmeFile = listResponse.Contents.find((file) =>
 		file.Key?.toLowerCase().includes("readme")
 	  );
   
 	  if (!readmeFile || !readmeFile.Key) {
+		console.error("[fetchReadmeMatches] README file not found in the folder.");
 		return null;
 	  }
+	  console.log(`[fetchReadmeMatches] Found README file: ${readmeFile.Key}`);
+  
+	  console.log(`[fetchReadmeMatches] Fetching content of README file: ${readmeFile.Key}`);
 	  const response = await s3
 		.getObject({
 		  Bucket: bucketName,
@@ -248,29 +268,39 @@ export async function fetchReadmeMatches(
 		})
 		.promise();
   
+	  console.log(`[fetchReadmeMatches] Fetch response:`, response);
   
 	  if (!response.Body) {
+		console.error("[fetchReadmeMatches] README file is empty or could not be read.");
 		return null;
 	  }
   
 	  const content = response.Body.toString("utf-8");
+	  console.log(`[fetchReadmeMatches] README content loaded. Length: ${content.length}`);
+	  console.log(`[fetchReadmeMatches] First few lines of README:\n${content.split('\n').slice(0, 5).join('\n')}`);
   
 	  const re2 = new RE2(regex, "g"); // Ensure global flag is set
+	  console.log(`[fetchReadmeMatches] Compiled RE2 regex with global flag: ${regex}`);
   
+	  console.log("[fetchReadmeMatches] Searching for matches in README content.");
 	  const matches: string[] = [];
 	  let match: RegExpExecArray | null;
   
 	  // Use re2.exec() to iteratively find matches
 	  while ((match = re2.exec(content)) !== null) {
 		matches.push(match[0]);
+		console.log(`[fetchReadmeMatches] Match found: ${match[0]}`);
 	  }
   
 	  if (matches.length === 0) {
+		console.error("[fetchReadmeMatches] No matches found in the README file.");
 		return null;
 	  }
   
+	  console.log(`[fetchReadmeMatches] Matches found: ${matches.length}`);
 	  return matches;
 	} catch (error) {
+	  console.error("[fetchReadmeMatches] An error occurred while processing the README file:", error);
 	  return null;
 	}
   }  
@@ -347,7 +377,8 @@ export async function clearS3Folder(bucketName: string, folderKey: string, s3: A
 
 		}
 	} catch (error) {
-		throw error;
+		console.error(`Failed to clear folder: s3://${bucketName}/${folderKey}`, error);
+			throw error;
 	}
 }
 
@@ -416,6 +447,7 @@ export async function uploadUnzippedToS3(
     
     return true;
   } catch (error) {
+    console.error("An error occurred while uploading unzipped contents to S3:", error);
     return false;
   }
 }
@@ -449,8 +481,10 @@ export async function handleDuplicateAndUpload(
       });
 
     if (headResponse) {
+      console.log(`Duplicate found: Clearing existing folder ${s3Key} in S3.`);
       await clearS3Folder(bucketName, s3Key, s3);
     } else {
+      console.log(`No duplicate found: Proceeding with upload.`);
       return false;
     }
 
@@ -492,8 +526,10 @@ export async function handleDuplicateAndUpload(
     // Wait for all uploads to complete
     await Promise.all(extractedFiles);
 
+    console.log(`Upload complete for folder ${s3Key} in S3.`);
     return true;
   } catch (error) {
+    console.error("An error occurred while handling duplicate or uploading content to S3:", error);
     return false;
   }
 }
@@ -546,6 +582,7 @@ export async function calculateFolderSize(folderPath: string): Promise<number> {
   
 	  return totalSize;
 	} catch (error) {
+	  console.error("Error while calculating folder size:", error);
 	  throw error;
 	}
   }

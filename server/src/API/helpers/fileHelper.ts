@@ -16,6 +16,7 @@ const execAsync = promisify(exec);
  * @returns {Promise<number>} A promise that resolves to the total size of the uncompressed contents in MB.
  */
 export async function get_standalone_cost(zipFileBase64: string): Promise<number> {
+  console.log(`INPUT: ${zipFileBase64}`);
   const isValidBase64 = (str: string) => {
     try {
         return Buffer.from(str, 'base64').toString('base64') === str.trim();
@@ -23,19 +24,25 @@ export async function get_standalone_cost(zipFileBase64: string): Promise<number
         return false;
     }
   };
+  console.log("Is valid Base64 string:", isValidBase64(zipFileBase64));
 
 
+  console.log("Received Base64 string for processing.");
   const zipFileBuffer = Buffer.from(zipFileBase64, "base64");
 
 
+  console.log("Converted Base64 string to buffer.");
 
   // Validate if the file has the PK header
   const fileHeader = zipFileBuffer.slice(0, 4).toString();
+  console.log(`File header: ${fileHeader}`);
   if (fileHeader !== "PK\x03\x04") {
+      console.error("Invalid zip file header detected.");
       throw new Error("The provided Base64 string does not represent a valid zip file.");
   }
 
   try {
+      console.log("Starting to process the zip file...");
       const zipStream = new stream.PassThrough();
       zipStream.end(zipFileBuffer);
 
@@ -45,32 +52,40 @@ export async function get_standalone_cost(zipFileBase64: string): Promise<number
           zipStream
               .pipe(unzipper.Parse())
               .on("entry", (entry: unzipper.Entry) => {
+                  console.log(`Processing entry: ${entry.path}, Type: ${entry.type}`);
                   if (entry.type === "File") {
                       let fileSize = 0;
 
                       entry.on("data", (chunk) => {
                           fileSize += chunk.length;
+                          console.log(`Read chunk of size: ${chunk.length}, Total so far: ${fileSize}`);
                       });
 
                       entry.on("end", () => {
+                          console.log(`Finished reading file: ${entry.path}, Size: ${fileSize}`);
                           totalUncompressedSize += fileSize;
                       });
                   } else {
+                      console.log(`Skipping non-file entry: ${entry.path}`);
                       entry.autodrain(); // Skip directories and other entries
                   }
               })
               .on("close", () => {
+                  console.log("Finished processing all entries in the zip file.");
                   resolve();
               })
               .on("error", (error) => {
+                  console.error("Error while parsing the zip file:", error);
                   reject(error);
               });
       });
 
       // Convert bytes to MB and round to 2 decimal places
       const totalSizeInMB = Math.round((totalUncompressedSize / (1024 * 1024)) * 100) / 100;
+      console.log(`Total uncompressed size: ${totalUncompressedSize} bytes, which is ${totalSizeInMB} MB.`);
       return totalSizeInMB;
   } catch (error) {
+      console.error("Error in get_standalone_cost:", error);
       throw new Error("Failed to calculate standalone cost due to invalid zip content.");
   }
 }
@@ -137,6 +152,7 @@ async function calculateDirectorySize(dirPath: string): Promise<number> {
       const stats = await fs.stat(currentPath);
   
       if (stats.isFile()) {
+        console.log(`File: ${currentPath}, Size: ${stats.size}`);
         totalSize += stats.size;
       } else if (stats.isDirectory()) {
         const entries = await fs.readdir(currentPath);
@@ -157,28 +173,37 @@ async function calculateDirectorySize(dirPath: string): Promise<number> {
     let tempDir: string | null = null;
   
     try {
+      console.log("Decoding and unzipping file...");
       tempDir = await unzipToTempDir(zipBuffer);
+      console.log("Temporary directory created at:", tempDir);
   
       const packageJsonPath = await findPackageJson(tempDir);
       if (!packageJsonPath) {
         throw new Error("No package.json found in the zip file.");
       }
   
+      console.log("Found package.json at:", packageJsonPath);
+  
+      console.log("Running npm install...");
       await execAsync("npm install --ignore-scripts --legacy-peer-deps --force", { cwd: path.dirname(packageJsonPath) });
   
       const totalSize = await calculateDirectorySize(tempDir);
+      console.log("Total size in bytes:", totalSize);
   
       return Math.round((totalSize / (1024 * 1024)) * 100) / 100;
     } catch (error) {
       if (error instanceof Error) {
+        console.error("Error in get_total_cost:", error.message);
         throw new Error("Failed to calculate total cost: " + error.message);
       } else {
+        console.error("Unexpected error type:", error);
         throw new Error("An unknown error occurred.");
       }
     } finally {
       if (tempDir) {
         try {
           await fs.rm(tempDir, { recursive: true, force: true });
+          console.log("Cleaned up temporary directory:", tempDir);
         } catch (cleanupError) {
           if(cleanupError instanceof Error){
             console.warn("Failed to clean up temporary directory:", tempDir, cleanupError.message);
@@ -186,4 +211,4 @@ async function calculateDirectorySize(dirPath: string): Promise<number> {
         }
       }
     }
-  }  
+  } 
