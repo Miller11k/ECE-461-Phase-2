@@ -129,6 +129,12 @@ async function uploadNewVersionToS3(packageName: string, version :string, conten
 }
 
 router.put('/:id', async (req, res) => {
+
+    console.log('\n\n\n*-------------------------------------------*');
+    console.log('PUT /package/:id endpoint hit');
+    console.log('*-------------------------------------------*');
+
+
     let log_put_package_id = parseInt(process.env.LOG_PUT_PACKAGE_ID || '0', 10);
     let log_all = parseInt(process.env.LOG_ALL || '0', 10);
     let should_log = shouldLog(log_put_package_id, log_all);

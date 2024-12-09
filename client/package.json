@@ -24,7 +24,7 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "lsof -i :3000 | grep LISTEN | awk '{print $2}' | xargs kill -9; source .env && react-scripts --openssl-legacy-provider start",
+    "start": "react-scripts --openssl-legacy-provider start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
