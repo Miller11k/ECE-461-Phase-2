@@ -24,9 +24,9 @@ const SearchForPackagePage = ({ handleLogout }) => {
 
 	// API configuration
 	const authToken = localStorage.getItem('authToken'); // Authentication token
-	const apiPort = process.env.REACT_APP_API_PORT || 4010; // API port
+	// const apiPort = process.env.REACT_APP_API_PORT || 4010; // API port
 	const apiLink = process.env.REACT_APP_API_URL || 'http://localhost'; // API base URL
-	const apiUrl = `${apiLink}:${apiPort}/package/byRegEx`; // API endpoint for searching packages
+	const apiUrl = `${apiLink}/package/byRegEx`; // API endpoint for searching packages
 
 	/**
 	 * Handles the search operation.

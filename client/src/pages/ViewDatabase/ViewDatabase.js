@@ -26,9 +26,9 @@ const ViewDatabase = ({ handleLogout }) => {
 	const authToken = localStorage.getItem('authToken');
 
 	// API endpoint configurations
-	const apiPort = process.env.REACT_APP_API_PORT || 4010; // API port
+	// const apiPort = process.env.REACT_APP_API_PORT || 4010; // API port
 	const apiLink = process.env.REACT_APP_API_URL || 'http://localhost';  // API base URL
-	const apiUrl = `${apiLink}:${apiPort}/packages`;  // Full API URL for fetching packages
+	const apiUrl = `${apiLink}/packages`;  // Full API URL for fetching packages
 
 	// Fetch packages whenever the offset changes
 	useEffect(() => {

@@ -32,7 +32,7 @@ const CreateUser = ({ handleLogout }) => {
 	const navigate = useNavigate();
 
 	// API configuration
-	const apiPort = process.env.REACT_APP_API_PORT || 4010;
+	// const apiPort = process.env.REACT_APP_API_PORT || 4010;
 	const apiLink = process.env.REACT_APP_API_URL || 'http://localhost';
 
 	/**
@@ -49,7 +49,7 @@ const CreateUser = ({ handleLogout }) => {
 
 		const verifyAdmin = async () => {
 			try {
-				const response = await axios.post(`${apiLink}:${apiPort}/get-user`, { token });
+				const response = await axios.post(`${apiLink}/get-user`, { token });
 				if (response.data.success && response.data.isAdmin) {
 					setIsAdmin(true); // Grant access to admin
 				} else {
@@ -64,7 +64,7 @@ const CreateUser = ({ handleLogout }) => {
 		};
 
 		verifyAdmin();
-	}, [apiLink, apiPort, navigate]);
+	}, [apiLink, navigate]);
 
 	/**
 	 * Handles the user creation process by sending form data to the server.
@@ -83,7 +83,7 @@ const CreateUser = ({ handleLogout }) => {
 
 		try {
 			const response = await axios.post(
-				`${apiLink}:${apiPort}/create-user`,
+				`${apiLink}/create-user`,
 				{
 					first_name: firstName,
 					last_name: lastName,

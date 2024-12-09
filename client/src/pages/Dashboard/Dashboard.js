@@ -27,7 +27,7 @@ const Dashboard = ({ handleLogout, token }) => {
 	const navigate = useNavigate();
 
 	// API configuration
-	const apiPort = process.env.REACT_APP_API_PORT || 4010;
+	// const apiPort = process.env.REACT_APP_API_PORT || 4010;
 	const apiLink = process.env.REACT_APP_API_URL || 'http://localhost';
 
 	/**
@@ -39,7 +39,7 @@ const Dashboard = ({ handleLogout, token }) => {
 		const fetchUserDetails = async () => {
 			try {
 				// API request to fetch user details
-				const response = await axios.post(`${apiLink}:${apiPort}/get-user`, { token });
+				const response = await axios.post(`${apiLink}/get-user`, { token });
 				if (response.data.success) {
 					const { firstName, lastName, isAdmin } = response.data;
 					setUserFullName(`${firstName} ${lastName}`); // Set full name
@@ -62,7 +62,7 @@ const Dashboard = ({ handleLogout, token }) => {
 			setMessage('No token found. Redirecting...');
 			setTimeout(() => navigate('/'), 3000); // Redirect after showing message
 		}
-	}, [token, apiLink, apiPort, navigate]);
+	}, [token, apiLink, navigate]);
 
 	// Render the Dashboard component
 	return (

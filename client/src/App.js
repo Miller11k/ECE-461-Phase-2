@@ -26,7 +26,7 @@ import ResetRegistry from './pages/ResetRegistry/resetRegistry';
 import CreateUser from './pages/CreateUser/createUser';
 
 // API configuration
-const apiPort = process.env.REACT_APP_API_PORT || 4010;
+// const apiPort = process.env.REACT_APP_API_PORT || 4010;
 const apiLink = process.env.REACT_APP_API_URL || 'http://localhost';
 
 const App = () => {
@@ -37,9 +37,9 @@ const App = () => {
 	useEffect(() => {
 		const storedToken = localStorage.getItem('authToken');
 		if (storedToken) {
-			setToken(storedToken);
+		  setToken(storedToken);
 		}
-	}, []);
+	  }, []);	  
 
 	/**
 	 * Handles user login by saving the token.
@@ -63,25 +63,31 @@ const App = () => {
 	 * @returns {Promise<boolean>} - True if the token is valid, otherwise false
 	 */
 	const validateToken = async () => {
-		try {
-			const response = await fetch(`${apiLink}:${apiPort}/get-user`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ token }),
-			});
-
-			if (!response.ok) {
-				console.error(`API error: ${response.status} - ${response.statusText}`);
-				return false;
-			}
-
-			const result = await response.json();
-			return result.success;
-		} catch (error) {
-			console.error('Token validation error:', error);
-			return false;
+		if (!token) {
+		  console.error('Token is null or undefined');
+		  return false;
 		}
-	};
+	  
+		try {
+		  const response = await fetch(`${apiLink}/get-user`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ token: token.startsWith('bearer ') ? token.slice(7) : token }),
+		  });
+	  
+		  if (!response.ok) {
+			console.error(`API error: ${response.status} - ${response.statusText}`);
+			return false;
+		  }
+	  
+		  const result = await response.json();
+		  return result.success;
+		} catch (error) {
+		  console.error('Token validation error:', error);
+		  return false;
+		}
+	  };			
+	  
 
 	/**
 	 * Checks if the user has admin privileges by making an API call.
@@ -89,7 +95,7 @@ const App = () => {
 	 */
 	const isAdmin = async () => {
 		try {
-			const response = await fetch(`${apiLink}:${apiPort}/get-user`, {
+			const response = await fetch(`${apiLink}/get-user`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ token }),
@@ -121,21 +127,26 @@ const App = () => {
 	 */
 	const ProtectedRoute = ({ children, validateToken }) => {
 		const [isValid, setIsValid] = useState(null);
-
+	  
 		useEffect(() => {
-			const validate = async () => {
-				const valid = await validateToken();
-				setIsValid(valid);
-			};
-			validate();
-		}, [validateToken]);
-
+		  if (!token) {
+			setIsValid(false); // Token is not available, user is not valid
+			return;
+		  }
+	  
+		  const validate = async () => {
+			const valid = await validateToken();
+			setIsValid(valid);
+		  };
+		  validate();
+		}, [validateToken, token]);
+	  
 		if (isValid === null) {
-			return <div>Loading...</div>;
+		  return <div>Loading...</div>;
 		}
-
+	  
 		return isValid ? children : <Navigate to="/" />;
-	};
+	  };	  
 
 	/**
 	 * AdminProtectedRoute Component

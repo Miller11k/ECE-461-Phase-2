@@ -26,9 +26,9 @@ function InternalPackage() {
 
 	// API configuration
 	const authToken = localStorage.getItem('authToken');  // Authentication token
-	const apiPort = process.env.REACT_APP_API_PORT || 4010; // API port
+	// const apiPort = process.env.REACT_APP_API_PORT || 4010; // API port
 	const apiLink = process.env.REACT_APP_API_URL || 'http://localhost';  // API base URL
-	const apiUrl = `${apiLink}:${apiPort}/package`; // Full API endpoint
+	const apiUrl = `${apiLink}/package`; // Full API endpoint
 
 	/**
 	 * Converts a file to a Base64-encoded string.

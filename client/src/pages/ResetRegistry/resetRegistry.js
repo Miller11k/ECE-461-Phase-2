@@ -28,7 +28,7 @@ const ResetRegistry = ({ handleLogout }) => {
 	const navigate = useNavigate();
 
 	// API configuration
-	const apiPort = process.env.REACT_APP_API_PORT || 4010;
+	// const apiPort = process.env.REACT_APP_API_PORT || 4010;
 	const apiLink = process.env.REACT_APP_API_URL || 'http://localhost';
 
 	/**
@@ -45,7 +45,7 @@ const ResetRegistry = ({ handleLogout }) => {
 		const verifyAdmin = async () => {
 			try {
 				// API request to verify admin status
-				const response = await axios.post(`${apiLink}:${apiPort}/get-user`, { token });
+				const response = await axios.post(`${apiLink}/get-user`, { token });
 
 				if (response.data.success && response.data.isAdmin) {
 					setIsAdmin(true); // Grant admin access
@@ -61,7 +61,7 @@ const ResetRegistry = ({ handleLogout }) => {
 		};
 
 		verifyAdmin();
-	}, [apiLink, apiPort, navigate]);
+	}, [apiLink, navigate]);
 
 	/**
 	 * Handles the registry reset action.
@@ -83,7 +83,7 @@ const ResetRegistry = ({ handleLogout }) => {
 
 		try {
 			// API request to reset the registry
-			const response = await axios.delete(`${apiLink}:${apiPort}/reset`, {
+			const response = await axios.delete(`${apiLink}/reset`, {
 				headers: { 'X-Authorization': token },
 			});
 

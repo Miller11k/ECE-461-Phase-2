@@ -24,8 +24,8 @@ const Login = ({ handleLogin }) => {
 	const navigate = useNavigate(); // Hook for navigation
 
 	// API configuration
-	const apiPort = process.env.REACT_APP_API_PORT || 4010;
-	const apiLink = process.env.REACT_APP_API_URL || 'http://localhost';
+	const apiPort = process.env.REACT_APP_API_PORT || 1112; // Use port 1112
+	const apiLink = process.env.REACT_APP_API_URL || `http://localhost:${apiPort}`; // Ensure API URL includes port 1112
 
 	/**
 	 * Handles the form submission.
@@ -38,13 +38,11 @@ const Login = ({ handleLogin }) => {
 		e.preventDefault(); // Prevent default form submission behavior
 		setMessage(''); // Clear previous messages
 
-		const apiUrl = `${apiLink}:${apiPort}/login`; // Construct the API URL
-		console.log(`Making request to: ${apiUrl}`); // Debug log
+		const apiUrl = `${apiLink}/login`; // Construct the API URL
 
 		try {
 			// Send login request to the server
 			const response = await axios.post(apiUrl, { username, password });
-			console.log('API Response:', response.data); // Debug log for API response
 
 			if (response.data.success) {
 				const { token } = response.data; // Extract token from response
@@ -63,38 +61,38 @@ const Login = ({ handleLogin }) => {
 	// Render the Login component
 	return (
 		<div className="login-container">
-		<h1 className="login-header"><u>Login</u></h1>
-		<div className="login-box">
-		{/* Company logo */}
-		<div className="logo-container">
-		<img src="logo.png" alt="Company Logo" className="company-logo" />
-		</div>
+			<h1 className="login-header"><u>Login</u></h1>
+			<div className="login-box">
+				{/* Company logo */}
+				<div className="logo-container">
+					<img src="/Logo.png" alt="Company Logo" className="company-logo" />
+				</div>
 
-		{/* Login form */}
-		<form onSubmit={handleSubmit}>
-		<input
-		type="text"
-		value={username}
-		onChange={(e) => setUsername(e.target.value)}
-		placeholder="Username"
-		required
-		/>
-		<input
-		type="password"
-		value={password}
-		onChange={(e) => setPassword(e.target.value)}
-		placeholder="Password"
-		required
-		/>
-		<button type="submit">Login</button>
-		</form>
+				{/* Login form */}
+				<form onSubmit={handleSubmit}>
+					<input
+						type="text"
+						value={username}
+						onChange={(e) => setUsername(e.target.value)}
+						placeholder="Username"
+						required
+					/>
+					<input
+						type="password"
+						value={password}
+						onChange={(e) => setPassword(e.target.value)}
+						placeholder="Password"
+						required
+					/>
+					<button type="submit">Login</button>
+				</form>
 
-		{/* Feedback message */}
-		{message && <p>{message}</p>}
-		</div>
+				{/* Feedback message */}
+				{message && <p>{message}</p>}
+			</div>
 
-		{/* Footer */}
-		<Footer />
+			{/* Footer */}
+			<Footer />
 		</div>
 	);
 };

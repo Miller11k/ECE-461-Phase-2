@@ -31,7 +31,7 @@ const AdminPage = ({ handleLogout }) => {
 	const navigate = useNavigate();
 
 	// API endpoint configurations, with fallback defaults
-	const apiPort = process.env.REACT_APP_API_PORT || 4010;
+	// const apiPort = process.env.REACT_APP_API_PORT || 4010;
 	const apiLink = process.env.REACT_APP_API_URL || 'http://localhost';
 
 	// Effect hook to verify admin status on component mount
@@ -53,7 +53,7 @@ const AdminPage = ({ handleLogout }) => {
 		const verifyAdmin = async () => {
 			try {
 				// API request to verify user and admin status
-				const response = await axios.post(`${apiLink}:${apiPort}/get-user`, { token });
+				const response = await axios.post(`${apiLink}/get-user`, { token });
 
 				if (response.data.success && response.data.isAdmin) {
 					setIsAdmin(true); // Grant access if user is an admin
@@ -69,7 +69,7 @@ const AdminPage = ({ handleLogout }) => {
 		};
 
 		verifyAdmin();
-	}, [apiLink, apiPort, navigate]);
+	}, [apiLink, navigate]);
 
 	// Render a loading screen while verifying admin status
 	if (isLoading) {

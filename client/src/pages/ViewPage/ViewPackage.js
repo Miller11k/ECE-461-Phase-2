@@ -33,54 +33,58 @@ const ViewPackage = ({ handleLogout }) => {
   const authToken = localStorage.getItem('authToken');
   const apiPort = process.env.REACT_APP_API_PORT || 4010;
   const apiLink = process.env.REACT_APP_API_URL || 'http://localhost';
-  const apiUrl = id ? `${apiLink}:${apiPort}/package/${id}` : null;
+  const apiUrl = id ? `${process.env.REACT_APP_API_URL}/package/${id}` : null;
 
   useEffect(() => {
     const fetchPackageDetails = async () => {
       try {
         setIsLoading(true);
-
+        const authToken = localStorage.getItem('authToken'); // Retrieve token from localStorage
+  
+        if (!authToken) {
+          console.error('No authToken found. Redirecting to login.');
+          navigate('/');
+          return;
+        }
+  
+        if (!id) {
+          console.error('No package ID found. Redirecting to view-database.');
+          navigate('/view-database');
+          return;
+        }
+  
+        const apiUrl = `${process.env.REACT_APP_API_URL}/package/${id}`; // Constructed URL from .env
+  
         // Fetch package details
-        const detailsResponse = await axios.get(apiUrl, {
+        const packageResponse = await axios.get(apiUrl, {
           headers: { 'X-Authorization': authToken },
         });
-        setPackageDetails(detailsResponse.data);
-
+        setPackageDetails(packageResponse.data);
+  
         // Fetch metrics
         const metricsResponse = await axios.get(`${apiUrl}/rate`, {
           headers: { 'X-Authorization': authToken },
         });
         setMetrics(metricsResponse.data);
-
+  
         // Fetch size cost
         const sizeCostResponse = await axios.get(`${apiUrl}/cost`, {
           headers: { 'X-Authorization': authToken },
         });
         setSizeCost(sizeCostResponse.data);
-
+  
         setError('');
       } catch (err) {
-        console.error('Error fetching package details:', err);
+        console.error('Error fetching package details:', err.response?.data || err.message);
         setError('Failed to fetch package details or additional data. Please try again.');
       } finally {
         setIsLoading(false);
       }
     };
-
-    if (!authToken) {
-      console.error('No authToken found. Redirecting to login.');
-      navigate('/');
-      return;
-    }
-
-    if (!id) {
-      console.error('No package ID found. Redirecting to view-database.');
-      navigate('/view-database');
-      return;
-    }
-
+  
     fetchPackageDetails();
-  }, [id, authToken, apiUrl, navigate]);
+  }, [id, navigate]); // Only include necessary dependencies
+  
 
   const handleDownload = () => {
     if (!packageDetails?.data?.Content) {
@@ -174,13 +178,12 @@ const ViewPackage = ({ handleLogout }) => {
           },
         };
     
-        console.log('Payload being sent to server:', payload); // Debugging
     
         setIsLoading(true);
         setError('');
         setSuccess('');
     
-        const response = await axios.post(apiUrl, payload, {
+        const response = await axios.put(apiUrl, payload, {
           headers: {
             'X-Authorization': `${authToken}`,
             'Content-Type': 'application/json',
@@ -188,7 +191,6 @@ const ViewPackage = ({ handleLogout }) => {
         });
     
         setSuccess('Package updated successfully!');
-        console.log('Server Response:', response.data);
     
         setZipFile(null);
         setPackageUrl('');

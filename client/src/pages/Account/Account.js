@@ -26,7 +26,7 @@ const Account = ({ handleLogout }) => {
   const [currentUsername, setCurrentUsername] = useState(''); // Current username of the user
 
   // Environment variables for API configuration
-  const apiPort = process.env.REACT_APP_API_PORT || 4010;
+  // const apiPort = process.env.REACT_APP_API_PORT || 4010;
   const apiLink = process.env.REACT_APP_API_URL || 'http://localhost';
   const token = localStorage.getItem('authToken');  // Authentication token from local storage
   const navigate = useNavigate(); // React Router hook for navigation
@@ -46,7 +46,7 @@ const Account = ({ handleLogout }) => {
 
       try {
         // Send a POST request to the 'get-user' endpoint with the token in the body
-        const userResponse = await axios.post(`${apiLink}:${apiPort}/get-user`, { token });
+        const userResponse = await axios.post(`${apiLink}/get-user`, { token });
 
         if (userResponse.data.success) {
           // Extract user details from the response and update state
@@ -68,7 +68,7 @@ const Account = ({ handleLogout }) => {
 
     // Call the authenticateUser function when the effect is triggered
     authenticateUser();
-  }, [token, apiLink, apiPort, navigate]);  // Dependencies for the useEffect hook
+  }, [token, apiLink, navigate]);  // Dependencies for the useEffect hook
 
   /**
    * Handles saving changes to the user's account details.
@@ -87,6 +87,19 @@ const Account = ({ handleLogout }) => {
       return;
     }
   
+    // Validate passwords if the user is changing the password
+    if (selectedOption === 'password') {
+      if (newPassword !== confirmPassword) {
+        alert('Passwords do not match. Please confirm your password correctly.');
+        return;
+      }
+  
+      if (!newPassword || !confirmPassword) {
+        alert('Password fields cannot be empty.');
+        return;
+      }
+    }
+  
     try {
       // Determine the endpoint and payload based on the selected option
       const endpoint = selectedOption === 'username' ? '/change-username' : '/change-password';
@@ -96,7 +109,7 @@ const Account = ({ handleLogout }) => {
           : { new_password: newPassword };
   
       // Make the API call
-      const response = await axios.post(`${apiLink}:${apiPort}${endpoint}`, payload, {
+      const response = await axios.post(`${apiLink}${endpoint}`, payload, {
         headers: { 'X-Authorization': token },
       });
   
@@ -111,7 +124,7 @@ const Account = ({ handleLogout }) => {
       console.error(`Error updating ${selectedOption}:`, error);
       alert(error?.response?.data?.message || 'An error occurred while processing your request.');
     }
-  };  
+  };
 
   return (
     <div className={styles.pageContainer}>
